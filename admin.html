@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SOLAR NAV — Admin</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header>
+    <div class="logo">SOLAR <span>NAV</span> &mdash; Admin</div>
+    <nav>
+      <a href="/">Calculadora</a>
+    </nav>
+  </header>
+
+  <!-- Login -->
+  <div class="admin-container" id="admin-login" style="display:block;">
+    <div class="admin-login">
+      <h2>Acceso Admin</h2>
+      <div class="form-group">
+        <input type="password" id="admin-pass" placeholder="Contrasena" onkeyup="if(event.key==='Enter') adminLogin()">
+      </div>
+      <button class="btn btn-primary" onclick="adminLogin()">Ingresar</button>
+    </div>
+  </div>
+
+  <!-- Admin Panel -->
+  <div class="admin-container" id="admin-panel" style="display:none;">
+
+    <!-- Config -->
+    <div class="config-form">
+      <h3>Configuracion general</h3>
+      <div class="input-row">
+        <div class="form-group">
+          <label>Tipo de cambio (ARS/USD)</label>
+          <input type="number" id="cfg-dollar" step="0.1">
+        </div>
+        <div class="form-group">
+          <label>Margen ganancia (%)</label>
+          <input type="number" id="cfg-margin" step="1">
+        </div>
+      </div>
+      <div class="input-row">
+        <div class="form-group">
+          <label>Eficiencia sistema (%)</label>
+          <input type="number" id="cfg-efficiency" step="1">
+        </div>
+        <div class="form-group">
+          <label>Costo instalacion (%)</label>
+          <input type="number" id="cfg-install" step="1">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>URL Ollama (ej: http://192.168.1.100:11434)</label>
+        <input type="text" id="cfg-ollama" placeholder="http://tu-vm:11434">
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="saveAdminConfig()">Guardar configuracion</button>
+    </div>
+
+    <!-- Products -->
+    <div class="config-form">
+      <h3>Productos</h3>
+      <div style="overflow-x:auto;">
+        <table class="admin-table" id="products-table">
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Categoria</th>
+              <th>USD</th>
+              <th>Flex USD</th>
+              <th>IVA</th>
+              <th>Watts</th>
+              <th>Final ARS</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="products-tbody"></tbody>
+        </table>
+      </div>
+      <div style="margin-top:1rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
+        <button class="btn btn-secondary btn-sm" onclick="showAddProduct()">+ Agregar producto</button>
+        <button class="btn btn-secondary btn-sm" onclick="resetProducts()">Restaurar defaults</button>
+        <button class="btn btn-secondary btn-sm" onclick="exportProducts()">Exportar JSON</button>
+        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('import-file').click()">Importar JSON</button>
+        <input type="file" id="import-file" accept=".json" style="display:none" onchange="importProducts(event)">
+      </div>
+    </div>
+
+    <!-- Add/Edit Product Modal -->
+    <div id="product-form" class="config-form" style="display:none;">
+      <h3 id="product-form-title">Agregar producto</h3>
+      <input type="hidden" id="pf-id">
+      <div class="input-row">
+        <div class="form-group">
+          <label>Nombre</label>
+          <input type="text" id="pf-name">
+        </div>
+        <div class="form-group">
+          <label>Categoria</label>
+          <select id="pf-category">
+            <option value="panel">Panel</option>
+            <option value="inversor">Inversor</option>
+            <option value="bateria">Bateria</option>
+            <option value="estructura">Estructura</option>
+            <option value="accesorio">Accesorio</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Descripcion</label>
+        <input type="text" id="pf-desc">
+      </div>
+      <div class="input-row">
+        <div class="form-group">
+          <label>Precio USD (sin IVA)</label>
+          <input type="number" id="pf-price" step="0.01">
+        </div>
+        <div class="form-group">
+          <label>Precio Flex USD (sin IVA, 0 si no aplica)</label>
+          <input type="number" id="pf-flex" step="0.01">
+        </div>
+      </div>
+      <div class="input-row">
+        <div class="form-group">
+          <label>IVA (%)</label>
+          <input type="number" id="pf-iva" step="0.1" value="21">
+        </div>
+        <div class="form-group">
+          <label>Watts</label>
+          <input type="number" id="pf-watts">
+        </div>
+      </div>
+      <div class="input-row">
+        <div class="form-group">
+          <label>Marca</label>
+          <input type="text" id="pf-brand">
+        </div>
+        <div class="form-group">
+          <label>Descuento contado (%)</label>
+          <input type="number" id="pf-discount" step="1" value="15">
+        </div>
+      </div>
+      <div style="display:flex; gap:0.5rem; margin-top:0.5rem;">
+        <button class="btn btn-primary btn-sm" onclick="saveProduct()">Guardar</button>
+        <button class="btn btn-secondary btn-sm" onclick="hideProductForm()">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/data.js"></script>
+  <script>
+    const ADMIN_PASS = 'solarnav2026';
+
+    function adminLogin() {
+      if (document.getElementById('admin-pass').value === ADMIN_PASS) {
+        document.getElementById('admin-login').style.display = 'none';
+        document.getElementById('admin-panel').style.display = 'block';
+        loadAdmin();
+      } else {
+        alert('Contrasena incorrecta');
+      }
+    }
+
+    function loadAdmin() {
+      const cfg = getConfig();
+      document.getElementById('cfg-dollar').value = cfg.dollarRate;
+      document.getElementById('cfg-margin').value = Math.round((cfg.margin - 1) * 100);
+      document.getElementById('cfg-efficiency').value = Math.round(cfg.efficiency * 100);
+      document.getElementById('cfg-install').value = Math.round(cfg.installCostPercent * 100);
+      document.getElementById('cfg-ollama').value = localStorage.getItem('solarnav_ollama_url') || '';
+      renderProductTable();
+    }
+
+    function saveAdminConfig() {
+      const cfg = getConfig();
+      cfg.dollarRate = parseFloat(document.getElementById('cfg-dollar').value);
+      cfg.margin = 1 + parseFloat(document.getElementById('cfg-margin').value) / 100;
+      cfg.efficiency = parseFloat(document.getElementById('cfg-efficiency').value) / 100;
+      cfg.installCostPercent = parseFloat(document.getElementById('cfg-install').value) / 100;
+      saveConfig(cfg);
+
+      const ollamaUrl = document.getElementById('cfg-ollama').value.replace(/\/$/, '');
+      localStorage.setItem('solarnav_ollama_url', ollamaUrl);
+
+      alert('Configuracion guardada');
+      renderProductTable();
+    }
+
+    function renderProductTable() {
+      const tbody = document.getElementById('products-tbody');
+      const products = getProducts();
+      tbody.innerHTML = '';
+
+      products.forEach(p => {
+        const priceARS = calcFinalPriceARS(p);
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${p.name}</td>
+          <td>${p.category}</td>
+          <td>${formatUSD(p.priceUSD)}</td>
+          <td>${p.flexPriceUSD ? formatUSD(p.flexPriceUSD) : '-'}</td>
+          <td>${(p.iva * 100).toFixed(1)}%</td>
+          <td>${p.watts || '-'}</td>
+          <td style="color:var(--gold)">${formatARS(priceARS)}</td>
+          <td>
+            <button class="btn btn-secondary btn-sm" onclick="editProduct(${p.id})" style="padding:0.3rem 0.5rem;">Editar</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteProduct(${p.id})" style="padding:0.3rem 0.5rem;">X</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function showAddProduct() {
+      document.getElementById('product-form').style.display = 'block';
+      document.getElementById('product-form-title').textContent = 'Agregar producto';
+      document.getElementById('pf-id').value = '';
+      document.getElementById('pf-name').value = '';
+      document.getElementById('pf-desc').value = '';
+      document.getElementById('pf-price').value = '';
+      document.getElementById('pf-flex').value = '';
+      document.getElementById('pf-iva').value = '21';
+      document.getElementById('pf-watts').value = '';
+      document.getElementById('pf-brand').value = '';
+      document.getElementById('pf-discount').value = '15';
+    }
+
+    function editProduct(id) {
+      const products = getProducts();
+      const p = products.find(x => x.id === id);
+      if (!p) return;
+
+      document.getElementById('product-form').style.display = 'block';
+      document.getElementById('product-form-title').textContent = 'Editar producto';
+      document.getElementById('pf-id').value = p.id;
+      document.getElementById('pf-name').value = p.name;
+      document.getElementById('pf-category').value = p.category;
+      document.getElementById('pf-desc').value = p.description;
+      document.getElementById('pf-price').value = p.priceUSD;
+      document.getElementById('pf-flex').value = p.flexPriceUSD || '';
+      document.getElementById('pf-iva').value = (p.iva * 100).toFixed(1);
+      document.getElementById('pf-watts').value = p.watts || '';
+      document.getElementById('pf-brand').value = p.brand || '';
+      document.getElementById('pf-discount').value = (p.cashDiscount || 0) * 100;
+    }
+
+    function hideProductForm() {
+      document.getElementById('product-form').style.display = 'none';
+    }
+
+    function saveProduct() {
+      const products = getProducts();
+      const id = document.getElementById('pf-id').value;
+      const flexVal = parseFloat(document.getElementById('pf-flex').value);
+
+      const product = {
+        id: id ? parseInt(id) : Date.now(),
+        category: document.getElementById('pf-category').value,
+        name: document.getElementById('pf-name').value,
+        description: document.getElementById('pf-desc').value,
+        priceUSD: parseFloat(document.getElementById('pf-price').value),
+        flexPriceUSD: flexVal > 0 ? flexVal : null,
+        iva: parseFloat(document.getElementById('pf-iva').value) / 100,
+        watts: parseInt(document.getElementById('pf-watts').value) || null,
+        brand: document.getElementById('pf-brand').value,
+        cashDiscount: parseFloat(document.getElementById('pf-discount').value) / 100,
+      };
+
+      if (id) {
+        const idx = products.findIndex(p => p.id === parseInt(id));
+        if (idx >= 0) products[idx] = product;
+      } else {
+        products.push(product);
+      }
+
+      saveProducts(products);
+      renderProductTable();
+      hideProductForm();
+    }
+
+    function deleteProduct(id) {
+      if (!confirm('Eliminar este producto?')) return;
+      const products = getProducts().filter(p => p.id !== id);
+      saveProducts(products);
+      renderProductTable();
+    }
+
+    function resetProducts() {
+      if (!confirm('Restaurar productos a los valores por defecto? Se perderan los cambios.')) return;
+      localStorage.removeItem('solarnav_products');
+      renderProductTable();
+    }
+
+    function exportProducts() {
+      const products = getProducts();
+      const blob = new Blob([JSON.stringify(products, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'solar-nav-products.json';
+      a.click();
+    }
+
+    function importProducts(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const products = JSON.parse(e.target.result);
+          if (Array.isArray(products)) {
+            saveProducts(products);
+            renderProductTable();
+            alert('Productos importados: ' + products.length);
+          } else {
+            alert('Formato invalido');
+          }
+        } catch {
+          alert('Error al leer el archivo');
+        }
+      };
+      reader.readAsText(file);
+    }
+  </script>
+</body>
+</html>

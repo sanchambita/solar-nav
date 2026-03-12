@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SOLAR NAV — Calculadora Solar Argentina</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#9728;</text></svg>">
+</head>
+<body>
+  <header>
+    <div class="logo">SOLAR <span>NAV</span></div>
+    <nav>
+      <a href="#calculator">Calculadora</a>
+      <a href="#products">Productos</a>
+      <a href="/admin.html">Admin</a>
+    </nav>
+  </header>
+
+  <!-- Hero -->
+  <section class="hero">
+    <h1>Calcula tu <span>ahorro solar</span></h1>
+    <p>Descubri cuanto podes ahorrar instalando paneles solares en tu hogar o negocio. Calculo personalizado para Argentina.</p>
+  </section>
+
+  <!-- Calculator -->
+  <section class="calculator" id="calculator">
+    <!-- Step 1: Ubicacion -->
+    <div class="step">
+      <div class="step-header">
+        <div class="step-number">1</div>
+        <h2>Ubicacion</h2>
+      </div>
+      <div class="form-group">
+        <label>Provincia</label>
+        <select id="province">
+          <option value="">Selecciona tu provincia</option>
+        </select>
+      </div>
+      <div id="hsp-info" style="font-size:0.85rem; color:var(--text-muted); display:none;">
+        Horas Solar Pico promedio: <strong id="hsp-value" style="color:var(--accent)"></strong> HSP/dia
+      </div>
+    </div>
+
+    <!-- Step 2: Consumo -->
+    <div class="step">
+      <div class="step-header">
+        <div class="step-number">2</div>
+        <h2>Consumo electrico</h2>
+      </div>
+
+      <div class="input-toggle">
+        <button class="active" onclick="setInputMode('kwh')">kWh/mes</button>
+        <button onclick="setInputMode('money')">$/mes (factura)</button>
+        <button onclick="setInputMode('upload')">Subir factura</button>
+      </div>
+
+      <!-- Mode: kWh -->
+      <div id="mode-kwh">
+        <div class="form-group">
+          <label>Consumo mensual en kWh</label>
+          <input type="number" id="input-kwh" placeholder="Ej: 350" min="50" max="50000">
+        </div>
+      </div>
+
+      <!-- Mode: Money -->
+      <div id="mode-money" style="display:none;">
+        <div class="form-group">
+          <label>Monto mensual de tu factura (ARS)</label>
+          <input type="number" id="input-money" placeholder="Ej: 25000" min="1000">
+        </div>
+      </div>
+
+      <!-- Mode: Upload -->
+      <div id="mode-upload" style="display:none;">
+        <div class="upload-area" id="upload-area">
+          <div class="upload-icon">&#128196;</div>
+          <p><strong>Arrastra tu factura aca</strong></p>
+          <p>o hace click para seleccionar (imagen o PDF)</p>
+          <input type="file" id="bill-file" accept="image/*,.pdf">
+        </div>
+        <div id="ollama-status"></div>
+        <div id="bill-result" style="display:none; margin-top:1rem;">
+          <div class="cost-breakdown">
+            <h3>Datos extraidos de la factura</h3>
+            <div id="bill-extracted"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-top:0.5rem;">
+        <label>Proveedor / Tarifa</label>
+        <select id="tariff">
+          <option value="">Selecciona tu proveedor</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Calculate Button -->
+    <button class="btn btn-primary" onclick="runCalculation()" id="calc-btn">
+      Calcular ahorro solar
+    </button>
+
+    <!-- Results -->
+    <div id="results">
+      <div class="step" style="margin-top:1.5rem; border-color:var(--accent);">
+        <div class="step-header">
+          <div class="step-number" style="background:var(--gold); color:#000;">&#9733;</div>
+          <h2>Tu sistema solar ideal</h2>
+        </div>
+
+        <!-- Key metrics -->
+        <div class="results-grid">
+          <div class="result-card highlight">
+            <div class="value" id="r-panels">-</div>
+            <div class="label">Paneles</div>
+          </div>
+          <div class="result-card">
+            <div class="value" id="r-power">-</div>
+            <div class="label">Potencia kWp</div>
+          </div>
+          <div class="result-card">
+            <div class="value" id="r-area">-</div>
+            <div class="label">Superficie m2</div>
+          </div>
+          <div class="result-card gold">
+            <div class="value" id="r-coverage">-</div>
+            <div class="label">Cobertura</div>
+          </div>
+        </div>
+
+        <!-- Cost breakdown -->
+        <div class="cost-breakdown">
+          <h3>Desglose de costos</h3>
+          <div class="cost-row">
+            <span>Paneles (<span id="r-panel-detail"></span>)</span>
+            <span id="r-cost-panels">-</span>
+          </div>
+          <div class="cost-row">
+            <span>Inversor (<span id="r-inverter-detail"></span>)</span>
+            <span id="r-cost-inverter">-</span>
+          </div>
+          <div class="cost-row">
+            <span>Estructura de montaje</span>
+            <span id="r-cost-structure">-</span>
+          </div>
+          <div class="cost-row">
+            <span>Instalacion y mano de obra</span>
+            <span id="r-cost-install">-</span>
+          </div>
+          <div class="cost-row">
+            <span>INVERSION TOTAL</span>
+            <span id="r-cost-total">-</span>
+          </div>
+        </div>
+
+        <!-- Savings -->
+        <div class="results-grid">
+          <div class="result-card green">
+            <div class="value" id="r-save-month">-</div>
+            <div class="label">Ahorro mensual</div>
+          </div>
+          <div class="result-card green">
+            <div class="value" id="r-save-year">-</div>
+            <div class="label">Ahorro anual</div>
+          </div>
+          <div class="result-card gold">
+            <div class="value" id="r-payback">-</div>
+            <div class="label">Recupero inversion</div>
+          </div>
+          <div class="result-card highlight">
+            <div class="value" id="r-roi">-</div>
+            <div class="label">ROI a 25 anos</div>
+          </div>
+        </div>
+
+        <!-- Generation bar -->
+        <div style="margin:1rem 0;">
+          <div style="display:flex; justify-content:space-between; font-size:0.85rem; margin-bottom:0.3rem;">
+            <span>Generacion vs Consumo</span>
+            <span id="r-gen-label">-</span>
+          </div>
+          <div class="timeline-bar">
+            <div class="timeline-fill" id="r-gen-bar" style="width:0%"></div>
+          </div>
+        </div>
+
+        <!-- Environmental -->
+        <div class="results-grid" style="margin-top:1.5rem;">
+          <div class="result-card">
+            <div class="value" id="r-co2" style="color:var(--success);">-</div>
+            <div class="label">kg CO2/ano evitados</div>
+          </div>
+          <div class="result-card">
+            <div class="value" id="r-trees" style="color:var(--success);">-</div>
+            <div class="label">Arboles equivalentes</div>
+          </div>
+          <div class="result-card">
+            <div class="value" id="r-gen-kwh">-</div>
+            <div class="label">kWh/ano generados</div>
+          </div>
+        </div>
+
+        <!-- Inverter info -->
+        <div id="r-inverter-info" class="cost-breakdown" style="margin-top:1rem;">
+          <h3>Equipamiento recomendado</h3>
+          <div id="r-equipment-list"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Products -->
+  <section class="products-section" id="products">
+    <h2>Catalogo de productos</h2>
+    <div class="product-grid" id="product-grid"></div>
+  </section>
+
+  <footer>
+    <p>SOLAR NAV &mdash; Calculadora de energia solar para Argentina</p>
+    <p style="margin-top:0.3rem;">Precios actualizados al tipo de cambio del dia. Los valores son estimativos.</p>
+  </footer>
+
+  <script src="/js/data.js"></script>
+  <script src="/js/calculator.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>
