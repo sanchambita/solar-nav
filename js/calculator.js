@@ -36,7 +36,7 @@ function calculateSolar(params) {
   const actualSystemKwp = numPanels * panelWp;
 
   // 5. Seleccionar inversor adecuado
-  const inverters = products.filter(p => p.category === 'inversor').sort((a, b) => a.watts - b.watts);
+  const inverters = products.filter(p => p.category === 'inversor' || p.category === 'inversor-offgrid' || p.category === 'inversor-hibrido').filter(p => p.watts).sort((a, b) => a.watts - b.watts);
   const systemWatts = actualSystemKwp * 1000;
 
   // Buscar inversor(es) que cubra(n) la potencia

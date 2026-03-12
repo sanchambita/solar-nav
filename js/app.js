@@ -256,22 +256,69 @@ function renderResults(r) {
   resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+// ---------- Category Labels ----------
+const CATEGORY_LABELS = {
+  'panel': 'Panel Solar',
+  'bateria': 'Bateria',
+  'inversor': 'Inversor On-Grid',
+  'inversor-offgrid': 'Inversor Off-Grid',
+  'inversor-hibrido': 'Inversor Hibrido',
+  'monitoring': 'Monitoreo / Iny. Cero',
+  'wifi': 'Modulo WiFi',
+  'proteccion': 'Proteccion',
+  'estructura': 'Estructura',
+  'termotanque': 'Termotanque Solar',
+  'powermeter': 'Powermeter',
+};
+
+// Category filter + order
+const CATEGORY_ORDER = ['panel','inversor','inversor-offgrid','inversor-hibrido','bateria','estructura','proteccion','monitoring','wifi','termotanque','powermeter'];
+
 // ---------- Render Products ----------
+let activeFilter = 'all';
+
 function renderProducts() {
   const grid = document.getElementById('product-grid');
   if (!grid) return;
 
   const products = getProducts();
+
+  // Build filter buttons
+  let filterContainer = document.getElementById('product-filters');
+  if (!filterContainer) {
+    filterContainer = document.createElement('div');
+    filterContainer.id = 'product-filters';
+    filterContainer.style.cssText = 'display:flex;flex-wrap:wrap;gap:0.5rem;margin-bottom:1.5rem;';
+    grid.parentNode.insertBefore(filterContainer, grid);
+  }
+
+  const categories = [...new Set(products.map(p => p.category))];
+  const sortedCats = categories.sort((a, b) => {
+    const ia = CATEGORY_ORDER.indexOf(a);
+    const ib = CATEGORY_ORDER.indexOf(b);
+    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+  });
+
+  filterContainer.innerHTML = `<button class="btn btn-sm ${activeFilter === 'all' ? 'btn-primary' : 'btn-secondary'}" onclick="filterProducts('all')">Todos (${products.length})</button>`;
+  sortedCats.forEach(cat => {
+    const count = products.filter(p => p.category === cat).length;
+    const label = CATEGORY_LABELS[cat] || cat;
+    filterContainer.innerHTML += `<button class="btn btn-sm ${activeFilter === cat ? 'btn-primary' : 'btn-secondary'}" onclick="filterProducts('${cat}')">${label} (${count})</button>`;
+  });
+
+  // Filter and render
+  const filtered = activeFilter === 'all' ? products : products.filter(p => p.category === activeFilter);
   grid.innerHTML = '';
 
-  products.forEach(p => {
+  filtered.forEach(p => {
     const priceARS = calcFinalPriceARS(p);
     const usd = p.flexPriceUSD || p.priceUSD;
+    const label = CATEGORY_LABELS[p.category] || p.category;
 
     const card = document.createElement('div');
     card.className = 'product-card';
     card.innerHTML = `
-      <span class="category-tag">${p.category}</span>
+      <span class="category-tag">${label}</span>
       <h3>${p.name}</h3>
       <p class="desc">${p.description}</p>
       <div class="price">${formatARS(priceARS)}</div>
@@ -279,4 +326,9 @@ function renderProducts() {
     `;
     grid.appendChild(card);
   });
+}
+
+function filterProducts(cat) {
+  activeFilter = cat;
+  renderProducts();
 }
