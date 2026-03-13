@@ -350,6 +350,144 @@ select:focus, input:focus {
   color: var(--danger);
 }
 
+/* ---------- Panel Adjuster ---------- */
+.panel-adjuster {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1rem;
+  background: var(--bg-card-hover);
+  border-radius: var(--radius);
+  margin-bottom: 1.5rem;
+  font-size: 1rem;
+}
+
+.adj-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  font-size: 1.3rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.adj-btn:hover {
+  background: var(--accent);
+  color: #000;
+}
+
+.adj-value {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: var(--accent);
+  min-width: 50px;
+  text-align: center;
+}
+
+/* ---------- Bill Comparison ---------- */
+.bill-comparison {
+  margin: 1.5rem 0;
+  padding: 1.5rem;
+  background: var(--bg-card-hover);
+  border-radius: var(--radius);
+}
+
+.bill-comparison h3 {
+  margin-bottom: 1rem;
+  font-size: 1rem;
+}
+
+.bill-compare-row {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.bill-box {
+  text-align: center;
+  padding: 1rem;
+  border-radius: var(--radius);
+  flex: 1;
+  min-width: 100px;
+}
+
+.bill-before {
+  background: rgba(255, 71, 87, 0.15);
+  border: 1px solid var(--danger);
+}
+
+.bill-after {
+  background: rgba(46, 213, 115, 0.15);
+  border: 1px solid var(--success);
+}
+
+.bill-savings {
+  background: rgba(255, 215, 0, 0.15);
+  border: 1px solid var(--gold);
+}
+
+.bill-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.bill-amount {
+  font-size: 1.4rem;
+  font-weight: 800;
+  margin: 0.3rem 0;
+}
+
+.bill-before .bill-amount { color: var(--danger); }
+.bill-after .bill-amount { color: var(--success); }
+.bill-savings .bill-amount { color: var(--gold); }
+
+.bill-sub {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.bill-arrow {
+  font-size: 1.5rem;
+  color: var(--text-muted);
+}
+
+/* ---------- Sliders ---------- */
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border);
+  outline: none;
+  margin: 0.5rem 0;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+}
+
+@media (max-width: 500px) {
+  .bill-compare-row { flex-direction: column; }
+  .bill-arrow { transform: rotate(90deg); }
+  .mode-selector { grid-template-columns: 1fr; }
+}
+
 /* ---------- Results ---------- */
 #results {
   display: none;

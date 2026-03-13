@@ -112,6 +112,51 @@
       </div>
     </div>
 
+    <!-- Step 3: Tipo de sistema -->
+    <div class="step">
+      <div class="step-header">
+        <div class="step-number">3</div>
+        <h2>Tipo de sistema</h2>
+      </div>
+      <div class="mode-selector" id="system-type-selector">
+        <button class="mode-btn active" onclick="setSystemType('ongrid')" id="sys-ongrid">
+          <span class="mode-icon">&#9889;</span>
+          <span class="mode-title">On-Grid</span>
+          <span class="mode-desc">Conectado a red. Menor costo, mejor ROI. Ley 27.424</span>
+        </button>
+        <button class="mode-btn" onclick="setSystemType('hybrid')" id="sys-hybrid">
+          <span class="mode-icon">&#128267;</span>
+          <span class="mode-title">Hibrido</span>
+          <span class="mode-desc">Red + baterias. Respaldo en cortes + ahorro</span>
+        </button>
+        <button class="mode-btn" onclick="setSystemType('offgrid')" id="sys-offgrid">
+          <span class="mode-icon">&#127956;</span>
+          <span class="mode-title">Off-Grid</span>
+          <span class="mode-desc">100% independiente. Sin red electrica</span>
+        </button>
+      </div>
+
+      <!-- Opciones batería (hybrid/offgrid) -->
+      <div id="battery-options" style="display:none;">
+        <div class="form-group">
+          <label>Tipo de bateria</label>
+          <select id="battery-type">
+            <option value="litio">Litio LiFePO4 (recomendado)</option>
+            <option value="plomo">Plomo-acido</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Dias de autonomia: <strong id="autonomy-val">2</strong></label>
+          <input type="range" id="autonomy-days" min="1" max="7" value="2" oninput="document.getElementById('autonomy-val').textContent=this.value">
+        </div>
+        <div id="essential-load-group" class="form-group">
+          <label>Cargas esenciales: <strong id="essential-val">50</strong>%</label>
+          <input type="range" id="essential-load" min="10" max="100" value="50" step="5" oninput="document.getElementById('essential-val').textContent=this.value">
+          <span style="font-size:0.75rem; color:var(--text-muted);">% del consumo que cubren las baterias</span>
+        </div>
+      </div>
+    </div>
+
     <!-- Calculate Button -->
     <button class="btn btn-primary" onclick="runCalculation()" id="calc-btn">
       Calcular ahorro solar
@@ -122,26 +167,58 @@
       <div class="step" style="margin-top:1.5rem; border-color:var(--accent);">
         <div class="step-header">
           <div class="step-number" style="background:var(--gold); color:#000;">&#9733;</div>
-          <h2>Tu sistema solar ideal</h2>
+          <h2>Tu sistema solar <span id="r-system-type" style="color:var(--accent);"></span></h2>
+        </div>
+
+        <!-- Panel adjuster -->
+        <div class="panel-adjuster">
+          <span>Paneles:</span>
+          <button class="adj-btn" onclick="adjustPanels(-1)">-</button>
+          <span class="adj-value" id="r-panels">-</span>
+          <button class="adj-btn" onclick="adjustPanels(1)">+</button>
+          <span id="r-panel-rec" style="font-size:0.75rem; color:var(--text-muted); margin-left:0.5rem;"></span>
         </div>
 
         <!-- Key metrics -->
         <div class="results-grid">
           <div class="result-card highlight">
-            <div class="value" id="r-panels">-</div>
-            <div class="label">Paneles</div>
-          </div>
-          <div class="result-card">
             <div class="value" id="r-power">-</div>
             <div class="label">Potencia kWp</div>
           </div>
           <div class="result-card">
             <div class="value" id="r-area">-</div>
-            <div class="label">Superficie m2</div>
+            <div class="label">Superficie m²</div>
           </div>
           <div class="result-card gold">
             <div class="value" id="r-coverage">-</div>
             <div class="label">Cobertura</div>
+          </div>
+          <div class="result-card" id="r-battery-card" style="display:none;">
+            <div class="value" id="r-battery-kwh">-</div>
+            <div class="label">Bateria kWh</div>
+          </div>
+        </div>
+
+        <!-- Bill comparison before/after -->
+        <div class="bill-comparison">
+          <h3>Tu factura antes y despues</h3>
+          <div class="bill-compare-row">
+            <div class="bill-box bill-before">
+              <div class="bill-label">Hoy pagas</div>
+              <div class="bill-amount" id="r-bill-before">-</div>
+              <div class="bill-sub">por mes</div>
+            </div>
+            <div class="bill-arrow">&#10132;</div>
+            <div class="bill-box bill-after">
+              <div class="bill-label">Con solar</div>
+              <div class="bill-amount" id="r-bill-after">-</div>
+              <div class="bill-sub">por mes</div>
+            </div>
+            <div class="bill-box bill-savings">
+              <div class="bill-label">Ahorras</div>
+              <div class="bill-amount" id="r-bill-pct">-</div>
+              <div class="bill-sub" id="r-bill-save-ars">por mes</div>
+            </div>
           </div>
         </div>
 
@@ -162,6 +239,10 @@
             <span>Inversor (<span id="r-inverter-detail"></span>)</span>
             <span id="r-cost-inverter">-</span>
           </div>
+          <div class="cost-row" id="r-battery-cost-row" style="display:none;">
+            <span>Baterias (<span id="r-battery-detail"></span>)</span>
+            <span id="r-cost-battery">-</span>
+          </div>
           <div class="cost-row">
             <span>Estructura de montaje</span>
             <span id="r-cost-structure">-</span>
@@ -170,7 +251,7 @@
             <span>Instalacion y mano de obra</span>
             <span id="r-cost-install">-</span>
           </div>
-          <div class="cost-row">
+          <div class="cost-row" style="font-weight:700; font-size:1.1rem;">
             <span>INVERSION TOTAL</span>
             <span id="r-cost-total">-</span>
           </div>
@@ -211,7 +292,7 @@
         <div class="results-grid" style="margin-top:1.5rem;">
           <div class="result-card">
             <div class="value" id="r-co2" style="color:var(--success);">-</div>
-            <div class="label">kg CO2/ano evitados</div>
+            <div class="label">kg CO²/año evitados</div>
           </div>
           <div class="result-card">
             <div class="value" id="r-trees" style="color:var(--success);">-</div>
@@ -219,13 +300,14 @@
           </div>
           <div class="result-card">
             <div class="value" id="r-gen-kwh">-</div>
-            <div class="label">kWh/ano generados</div>
+            <div class="label">kWh/año generados</div>
           </div>
         </div>
 
-        <!-- Inverter info (legacy placeholder) -->
-        <div id="r-inverter-info" style="display:none;">
-        </div>
+        <!-- Export PDF -->
+        <button class="btn btn-primary" onclick="exportPDF()" style="margin-top:1.5rem; width:100%;">
+          Descargar presupuesto PDF
+        </button>
       </div>
     </div>
   </section>
