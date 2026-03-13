@@ -115,8 +115,15 @@ async function processFile(file) {
     showBillResult(data.result);
     autoFillFromBill(data.result);
   } catch (err) {
-    area.innerHTML = '<div class="upload-icon">&#10060;</div><p>Error al analizar: ' + err.message + '</p><p>Intenta con input manual</p>';
+    area.innerHTML = '<div class="upload-icon">&#10060;</div><p>Error al analizar: ' + esc(err.message) + '</p><p>Intenta con input manual</p>';
   }
+}
+
+// Escape HTML entities to prevent XSS
+function esc(str) {
+  const div = document.createElement('div');
+  div.textContent = String(str);
+  return div.innerHTML;
 }
 
 function showBillResult(data) {
@@ -126,7 +133,7 @@ function showBillResult(data) {
   const resultDiv = document.getElementById('bill-result');
   const extractedDiv = document.getElementById('bill-extracted');
 
-  const row = (label, value) => '<div class="cost-row"><span>' + label + '</span><span>' + value + '</span></div>';
+  const row = (label, value) => '<div class="cost-row"><span>' + esc(label) + '</span><span>' + esc(value) + '</span></div>';
 
   let html = '';
   if (data.proveedor) html += row('Proveedor', data.proveedor);

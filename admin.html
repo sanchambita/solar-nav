@@ -168,7 +168,7 @@
       document.getElementById('cfg-margin').value = Math.round((cfg.margin - 1) * 100);
       document.getElementById('cfg-efficiency').value = Math.round(cfg.efficiency * 100);
       document.getElementById('cfg-install').value = Math.round(cfg.installCostPercent * 100);
-      document.getElementById('cfg-gemini').value = localStorage.getItem('solarnav_gemini_key') || '';
+      // AI config is server-side only
       renderProductTable();
     }
 
@@ -179,9 +179,6 @@
       cfg.efficiency = parseFloat(document.getElementById('cfg-efficiency').value) / 100;
       cfg.installCostPercent = parseFloat(document.getElementById('cfg-install').value) / 100;
       saveConfig(cfg);
-
-      const geminiKey = document.getElementById('cfg-gemini').value.trim();
-      localStorage.setItem('solarnav_gemini_key', geminiKey);
 
       alert('Configuracion guardada');
       renderProductTable();
