@@ -45,9 +45,19 @@ function populateTariffs() {
   });
 }
 
-// ---------- Input mode toggle ----------
+// ---------- Entry mode (auto/manual) ----------
+let entryMode = 'auto';
 let currentMode = 'kwh';
 
+function setEntryMode(mode) {
+  entryMode = mode;
+  document.getElementById('mode-btn-auto').classList.toggle('active', mode === 'auto');
+  document.getElementById('mode-btn-manual').classList.toggle('active', mode === 'manual');
+  document.getElementById('entry-auto').style.display = mode === 'auto' ? 'block' : 'none';
+  document.getElementById('entry-manual').style.display = mode === 'manual' ? 'block' : 'none';
+}
+
+// ---------- Input mode toggle (within manual) ----------
 function setInputMode(mode) {
   currentMode = mode;
   document.querySelectorAll('.input-toggle button').forEach((btn, i) => {
@@ -190,54 +200,66 @@ function showBillResult(data) {
 
 // ---------- Auto-fill from bill ----------
 function autoFillFromBill(data) {
-  // 1. Auto-fill kWh
+  // 1. Auto-fill kWh (both hidden auto field and manual input)
   if (data.consumo_kwh) {
-    document.getElementById('input-kwh').value = Math.round(data.consumo_kwh);
-    setInputMode('kwh');
+    const kwh = Math.round(data.consumo_kwh);
+    document.getElementById('auto-kwh').value = kwh;
+    document.getElementById('input-kwh').value = kwh;
   }
 
-  // 2. Auto-select tariff based on proveedor + tipo_tarifa + actividad
-  const tariffSel = document.getElementById('tariff');
+  // 2. Match tariff based on proveedor + tipo_tarifa + actividad
   const provider = (data.proveedor || '').toLowerCase();
   const tipo = (data.tipo_tarifa || 'T1').toUpperCase();
   const actividad = (data.actividad || '').toLowerCase();
 
   let bestMatch = '';
 
-  for (const opt of tariffSel.options) {
-    if (!opt.value) continue;
-    const tariff = TARIFFS.find(t => t.id === opt.value);
-    if (!tariff) continue;
-
-    // Match provider
+  for (const tariff of TARIFFS) {
     const providerMatch = tariff.provider && provider.includes(tariff.provider);
     if (!providerMatch) continue;
-
-    // Match type (T1/T2/T3)
     if (tariff.type !== tipo) continue;
 
-    // For T1, try to match residential vs commercial
     if (tipo === 'T1') {
       const isResidencial = actividad.includes('residen') || actividad === '';
       const isResTariff = tariff.id.includes('-res');
-      if (isResidencial && isResTariff) { bestMatch = opt.value; break; }
-      if (!isResidencial && !isResTariff) { bestMatch = opt.value; break; }
-      // Fallback: take first T1 match
-      if (!bestMatch) bestMatch = opt.value;
+      if (isResidencial && isResTariff) { bestMatch = tariff.id; break; }
+      if (!isResidencial && !isResTariff) { bestMatch = tariff.id; break; }
+      if (!bestMatch) bestMatch = tariff.id;
     } else {
-      bestMatch = opt.value;
+      bestMatch = tariff.id;
       break;
     }
   }
 
+  // Store in hidden field for auto mode
+  let autoTariff = document.getElementById('auto-tariff');
+  if (!autoTariff) {
+    autoTariff = document.createElement('input');
+    autoTariff.type = 'hidden';
+    autoTariff.id = 'auto-tariff';
+    document.getElementById('entry-auto').appendChild(autoTariff);
+  }
+  autoTariff.value = bestMatch;
+
+  // Also set manual tariff dropdown
   if (bestMatch) {
-    tariffSel.value = bestMatch;
+    document.getElementById('tariff').value = bestMatch;
   }
 
-  // 3. Try to auto-select province from provider name
+  // 3. Show detected tariff in bill result
+  if (bestMatch) {
+    const matchedTariff = TARIFFS.find(t => t.id === bestMatch);
+    if (matchedTariff) {
+      const infoDiv = document.createElement('div');
+      infoDiv.style.cssText = 'margin-top:0.8rem; padding:0.6rem 1rem; background:var(--accent-glow); border-radius:8px; font-size:0.9rem; color:var(--accent);';
+      infoDiv.innerHTML = '<strong>Tarifa detectada:</strong> ' + matchedTariff.name;
+      document.getElementById('bill-extracted').appendChild(infoDiv);
+    }
+  }
+
+  // 4. Try to auto-select province from provider name
   const provinceSel = document.getElementById('province');
   if (provider.includes('edenor') || provider.includes('edesur')) {
-    // EDENOR/EDESUR = Buenos Aires / CABA area
     if (!provinceSel.value) {
       provinceSel.value = 'bsas';
       provinceSel.dispatchEvent(new Event('change'));
@@ -262,19 +284,36 @@ function fileToBase64(file) {
 // ---------- Run Calculation ----------
 function runCalculation() {
   const provinceId = document.getElementById('province').value;
-  const tariffId = document.getElementById('tariff').value;
-
   if (!provinceId) { alert('Selecciona una provincia'); return; }
-  if (!tariffId) { alert('Selecciona un proveedor de energia'); return; }
 
   let monthlyKwh;
+  let tariffId;
 
-  if (currentMode === 'kwh') {
-    monthlyKwh = parseFloat(document.getElementById('input-kwh').value);
+  if (entryMode === 'auto') {
+    // Auto mode: data comes from bill analysis
+    monthlyKwh = parseFloat(document.getElementById('auto-kwh').value);
+    tariffId = document.getElementById('auto-tariff') ? document.getElementById('auto-tariff').value : '';
+
+    if (!monthlyKwh || monthlyKwh < 10) {
+      alert('Primero subi una foto de tu factura para analizar');
+      return;
+    }
+    if (!tariffId) {
+      alert('No se pudo detectar la tarifa de tu factura. Usa el modo manual.');
+      return;
+    }
   } else {
-    const amount = parseFloat(document.getElementById('input-money').value);
-    if (!amount) { alert('Ingresa el monto de tu factura'); return; }
-    monthlyKwh = estimateKwhFromBill(amount, tariffId);
+    // Manual mode
+    tariffId = document.getElementById('tariff').value;
+    if (!tariffId) { alert('Selecciona un proveedor de energia'); return; }
+
+    if (currentMode === 'kwh') {
+      monthlyKwh = parseFloat(document.getElementById('input-kwh').value);
+    } else {
+      const amount = parseFloat(document.getElementById('input-money').value);
+      if (!amount) { alert('Ingresa el monto de tu factura'); return; }
+      monthlyKwh = estimateKwhFromBill(amount, tariffId);
+    }
   }
 
   if (!monthlyKwh || monthlyKwh < 10) {

@@ -232,6 +232,65 @@ select:focus, input:focus {
   font-size: 0.85rem;
 }
 
+/* ---------- Entry Mode Selector ---------- */
+.mode-selector {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.mode-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 1.5rem 1rem;
+  background: var(--bg-card);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.3s;
+  font-family: inherit;
+}
+
+.mode-btn:hover {
+  border-color: var(--accent);
+  background: var(--bg-card-hover);
+}
+
+.mode-btn.active {
+  border-color: var(--accent);
+  background: var(--accent-glow);
+  color: var(--text);
+}
+
+.mode-icon {
+  font-size: 2rem;
+}
+
+.mode-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.mode-btn.active .mode-title {
+  color: var(--accent);
+}
+
+.mode-desc {
+  font-size: 0.75rem;
+  text-align: center;
+  line-height: 1.3;
+}
+
+@media (max-width: 500px) {
+  .mode-selector {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ---------- Bill Upload ---------- */
 .upload-area {
   border: 2px dashed var(--border);

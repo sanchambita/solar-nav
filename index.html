@@ -49,49 +49,66 @@
         <h2>Consumo electrico</h2>
       </div>
 
-      <!-- Upload factura (principal) -->
-      <div class="upload-area" id="upload-area">
-        <div class="upload-icon">&#128196;</div>
-        <p><strong>Subi una foto de tu factura de luz</strong></p>
-        <p>La IA lee tu factura y completa todo automaticamente</p>
-        <input type="file" id="bill-file" accept="image/*,.pdf">
+      <!-- Mode selector: two big buttons -->
+      <div class="mode-selector" id="mode-selector">
+        <button class="mode-btn active" id="mode-btn-auto" onclick="setEntryMode('auto')">
+          <span class="mode-icon">&#128196;</span>
+          <span class="mode-title">Cargar factura</span>
+          <span class="mode-desc">La IA analiza tu factura y calcula automaticamente</span>
+        </button>
+        <button class="mode-btn" id="mode-btn-manual" onclick="setEntryMode('manual')">
+          <span class="mode-icon">&#9999;</span>
+          <span class="mode-title">Ingresar datos</span>
+          <span class="mode-desc">Completa manualmente tu consumo y tarifa</span>
+        </button>
       </div>
-      <div id="ollama-status"></div>
-      <div id="bill-result" style="display:none; margin-top:1rem;">
-        <div class="cost-breakdown" style="border:1px solid var(--accent);">
-          <h3 style="color:var(--accent);">Datos extraidos de tu factura</h3>
-          <div id="bill-extracted"></div>
+
+      <!-- AUTO mode: Upload factura -->
+      <div id="entry-auto">
+        <div class="upload-area" id="upload-area">
+          <div class="upload-icon">&#128196;</div>
+          <p><strong>Subi una foto de tu factura de luz</strong></p>
+          <p>Arrastra o hace click para subir</p>
+          <input type="file" id="bill-file" accept="image/*,.pdf">
         </div>
-      </div>
-
-      <div style="text-align:center; color:var(--text-muted); font-size:0.85rem; margin:1rem 0;">o ingresa los datos manualmente</div>
-
-      <div class="input-toggle">
-        <button class="active" onclick="setInputMode('kwh')">kWh/mes</button>
-        <button onclick="setInputMode('money')">$/mes (monto factura)</button>
-      </div>
-
-      <!-- Mode: kWh -->
-      <div id="mode-kwh">
-        <div class="form-group">
-          <label>Consumo mensual en kWh</label>
-          <input type="number" id="input-kwh" placeholder="Ej: 518" min="10" max="500000">
+        <div id="ollama-status"></div>
+        <div id="bill-result" style="display:none; margin-top:1rem;">
+          <div class="cost-breakdown" style="border:1px solid var(--accent);">
+            <h3 style="color:var(--accent);">Datos extraidos de tu factura</h3>
+            <div id="bill-extracted"></div>
+          </div>
         </div>
+        <!-- Hidden fields auto-filled by AI -->
+        <input type="hidden" id="auto-kwh">
       </div>
 
-      <!-- Mode: Money -->
-      <div id="mode-money" style="display:none;">
-        <div class="form-group">
-          <label>Monto total de tu factura (ARS)</label>
-          <input type="number" id="input-money" placeholder="Ej: 72300" min="100">
+      <!-- MANUAL mode: Input fields -->
+      <div id="entry-manual" style="display:none;">
+        <div class="input-toggle">
+          <button class="active" onclick="setInputMode('kwh')">kWh/mes</button>
+          <button onclick="setInputMode('money')">$/mes (monto factura)</button>
         </div>
-      </div>
 
-      <div class="form-group" style="margin-top:0.5rem;">
-        <label>Proveedor / Tarifa</label>
-        <select id="tariff">
-          <option value="">Selecciona tu proveedor y tarifa</option>
-        </select>
+        <div id="mode-kwh">
+          <div class="form-group">
+            <label>Consumo mensual en kWh</label>
+            <input type="number" id="input-kwh" placeholder="Ej: 518" min="10" max="500000">
+          </div>
+        </div>
+
+        <div id="mode-money" style="display:none;">
+          <div class="form-group">
+            <label>Monto total de tu factura (ARS)</label>
+            <input type="number" id="input-money" placeholder="Ej: 72300" min="100">
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top:0.5rem;">
+          <label>Proveedor / Tarifa</label>
+          <select id="tariff">
+            <option value="">Selecciona tu proveedor y tarifa</option>
+          </select>
+        </div>
       </div>
     </div>
 
