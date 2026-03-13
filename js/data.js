@@ -42,35 +42,71 @@ const PROVINCES = [
   { id: 'tucuman', name: 'Tucumán', hsp: 5.2 },
 ];
 
-// Tarifas EDENOR residencial (ARS/kWh aproximado, actualizable desde admin)
+// Tarifas eléctricas Argentina (ARS/kWh efectivo incluyendo impuestos proporcionales)
+// Basado en factura real EDENOR Enero 2026: 518kWh = $72,300 → ~$139.58/kWh efectivo
+// Cargo variable: hasta 350kWh=$70.48/kWh, >350kWh=$94.44/kWh + ~40% impuestos/tasas
+// T1 = Pequeña demanda (residencial/comercial hasta 10kW)
+// T2 = Mediana demanda (comercial/industrial 10-50kW, trifásica)
+// T3 = Gran demanda (industrial >50kW, trifásica)
 const TARIFFS = [
-  { id: 'edenor', name: 'EDENOR', provider: 'edenor', ranges: [
-    { min: 0, max: 150, priceKwh: 25, label: 'R1 (0-150 kWh)' },
-    { min: 151, max: 325, priceKwh: 45, label: 'R2 (151-325 kWh)' },
-    { min: 326, max: 450, priceKwh: 65, label: 'R3 (326-450 kWh)' },
-    { min: 451, max: 600, priceKwh: 85, label: 'R4 (451-600 kWh)' },
-    { min: 601, max: 800, priceKwh: 105, label: 'R5 (601-800 kWh)' },
-    { min: 801, max: 900, priceKwh: 130, label: 'R6 (801-900 kWh)' },
-    { min: 901, max: 1000, priceKwh: 155, label: 'R7 (901-1000 kWh)' },
-    { min: 1001, max: 1200, priceKwh: 175, label: 'R8 (1001-1200 kWh)' },
-    { min: 1201, max: 99999, priceKwh: 200, label: 'R9 (+1200 kWh)' },
+  // --- EDENOR ---
+  { id: 'edenor-t1-res', name: 'EDENOR T1 Residencial', provider: 'edenor', type: 'T1', phase: 'mono', ranges: [
+    { min: 0, max: 150, priceKwh: 85, label: 'R1 (0-150 kWh)' },
+    { min: 151, max: 325, priceKwh: 100, label: 'R2 (151-325 kWh)' },
+    { min: 326, max: 450, priceKwh: 120, label: 'R3 (326-450 kWh)' },
+    { min: 451, max: 600, priceKwh: 140, label: 'R4 (451-600 kWh)' },
+    { min: 601, max: 800, priceKwh: 160, label: 'R5 (601-800 kWh)' },
+    { min: 801, max: 1000, priceKwh: 185, label: 'R6 (801-1000 kWh)' },
+    { min: 1001, max: 1400, priceKwh: 210, label: 'R7 (1001-1400 kWh)' },
+    { min: 1401, max: 99999, priceKwh: 240, label: 'R8 (+1400 kWh)' },
   ]},
-  { id: 'edesur', name: 'EDESUR', provider: 'edesur', ranges: [
-    { min: 0, max: 150, priceKwh: 24, label: 'R1 (0-150 kWh)' },
-    { min: 151, max: 325, priceKwh: 43, label: 'R2 (151-325 kWh)' },
-    { min: 326, max: 450, priceKwh: 62, label: 'R3 (326-450 kWh)' },
-    { min: 451, max: 600, priceKwh: 82, label: 'R4 (451-600 kWh)' },
-    { min: 601, max: 800, priceKwh: 100, label: 'R5 (601-800 kWh)' },
-    { min: 801, max: 900, priceKwh: 125, label: 'R6 (801-900 kWh)' },
-    { min: 901, max: 1000, priceKwh: 150, label: 'R7 (901-1000 kWh)' },
-    { min: 1001, max: 1200, priceKwh: 170, label: 'R8 (1001-1200 kWh)' },
-    { min: 1201, max: 99999, priceKwh: 195, label: 'R9 (+1200 kWh)' },
+  { id: 'edenor-t1-com', name: 'EDENOR T1 Comercial', provider: 'edenor', type: 'T1', phase: 'mono', ranges: [
+    { min: 0, max: 800, priceKwh: 130, label: 'G1 (0-800 kWh)' },
+    { min: 801, max: 1600, priceKwh: 165, label: 'G2 (801-1600 kWh)' },
+    { min: 1601, max: 99999, priceKwh: 200, label: 'G3 (+1600 kWh)' },
   ]},
-  { id: 'epec', name: 'EPEC (Córdoba)', provider: 'epec', ranges: [
-    { min: 0, max: 150, priceKwh: 22, label: 'R1 (0-150 kWh)' },
-    { min: 151, max: 325, priceKwh: 40, label: 'R2 (151-325 kWh)' },
-    { min: 326, max: 500, priceKwh: 58, label: 'R3 (326-500 kWh)' },
-    { min: 501, max: 99999, priceKwh: 75, label: 'R4 (+500 kWh)' },
+  { id: 'edenor-t2', name: 'EDENOR T2 Mediana demanda (trifásica)', provider: 'edenor', type: 'T2', phase: 'tri', demandChargeKw: 8500, ranges: [
+    { min: 0, max: 5000, priceKwh: 105, label: 'Hasta 5000 kWh' },
+    { min: 5001, max: 15000, priceKwh: 125, label: '5001-15000 kWh' },
+    { min: 15001, max: 99999, priceKwh: 140, label: '+15000 kWh' },
+  ]},
+  { id: 'edenor-t3', name: 'EDENOR T3 Gran demanda (trifásica)', provider: 'edenor', type: 'T3', phase: 'tri', demandChargeKw: 12000, ranges: [
+    { min: 0, max: 99999, priceKwh: 95, label: 'Tarifa unica' },
+  ]},
+  // --- EDESUR ---
+  { id: 'edesur-t1-res', name: 'EDESUR T1 Residencial', provider: 'edesur', type: 'T1', phase: 'mono', ranges: [
+    { min: 0, max: 150, priceKwh: 82, label: 'R1 (0-150 kWh)' },
+    { min: 151, max: 325, priceKwh: 97, label: 'R2 (151-325 kWh)' },
+    { min: 326, max: 450, priceKwh: 115, label: 'R3 (326-450 kWh)' },
+    { min: 451, max: 600, priceKwh: 135, label: 'R4 (451-600 kWh)' },
+    { min: 601, max: 800, priceKwh: 155, label: 'R5 (601-800 kWh)' },
+    { min: 801, max: 1000, priceKwh: 180, label: 'R6 (801-1000 kWh)' },
+    { min: 1001, max: 1400, priceKwh: 205, label: 'R7 (1001-1400 kWh)' },
+    { min: 1401, max: 99999, priceKwh: 235, label: 'R8 (+1400 kWh)' },
+  ]},
+  { id: 'edesur-t1-com', name: 'EDESUR T1 Comercial', provider: 'edesur', type: 'T1', phase: 'mono', ranges: [
+    { min: 0, max: 800, priceKwh: 125, label: 'G1 (0-800 kWh)' },
+    { min: 801, max: 1600, priceKwh: 160, label: 'G2 (801-1600 kWh)' },
+    { min: 1601, max: 99999, priceKwh: 195, label: 'G3 (+1600 kWh)' },
+  ]},
+  { id: 'edesur-t2', name: 'EDESUR T2 Mediana demanda (trifásica)', provider: 'edesur', type: 'T2', phase: 'tri', demandChargeKw: 8200, ranges: [
+    { min: 0, max: 5000, priceKwh: 100, label: 'Hasta 5000 kWh' },
+    { min: 5001, max: 15000, priceKwh: 120, label: '5001-15000 kWh' },
+    { min: 15001, max: 99999, priceKwh: 135, label: '+15000 kWh' },
+  ]},
+  { id: 'edesur-t3', name: 'EDESUR T3 Gran demanda (trifásica)', provider: 'edesur', type: 'T3', phase: 'tri', demandChargeKw: 11500, ranges: [
+    { min: 0, max: 99999, priceKwh: 90, label: 'Tarifa unica' },
+  ]},
+  // --- EPEC (Córdoba) ---
+  { id: 'epec-t1', name: 'EPEC T1 Residencial (Córdoba)', provider: 'epec', type: 'T1', phase: 'mono', ranges: [
+    { min: 0, max: 150, priceKwh: 75, label: 'R1 (0-150 kWh)' },
+    { min: 151, max: 325, priceKwh: 90, label: 'R2 (151-325 kWh)' },
+    { min: 326, max: 500, priceKwh: 110, label: 'R3 (326-500 kWh)' },
+    { min: 501, max: 99999, priceKwh: 130, label: 'R4 (+500 kWh)' },
+  ]},
+  { id: 'epec-t2', name: 'EPEC T2 Mediana demanda (Córdoba, trifásica)', provider: 'epec', type: 'T2', phase: 'tri', demandChargeKw: 7500, ranges: [
+    { min: 0, max: 5000, priceKwh: 85, label: 'Hasta 5000 kWh' },
+    { min: 5001, max: 99999, priceKwh: 105, label: '+5000 kWh' },
   ]},
 ];
 

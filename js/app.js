@@ -51,11 +51,10 @@ let currentMode = 'kwh';
 function setInputMode(mode) {
   currentMode = mode;
   document.querySelectorAll('.input-toggle button').forEach((btn, i) => {
-    btn.classList.toggle('active', ['kwh', 'money', 'upload'][i] === mode);
+    btn.classList.toggle('active', ['kwh', 'money'][i] === mode);
   });
   document.getElementById('mode-kwh').style.display = mode === 'kwh' ? 'block' : 'none';
   document.getElementById('mode-money').style.display = mode === 'money' ? 'block' : 'none';
-  document.getElementById('mode-upload').style.display = mode === 'upload' ? 'block' : 'none';
 }
 
 // ---------- Ollama integration ----------
@@ -115,7 +114,29 @@ async function processFile(file) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'llava',
-        prompt: 'Analiza esta factura de electricidad argentina. Extrae y devuelve SOLO un JSON con estos campos: {"consumo_kwh": number, "monto_total": number, "proveedor": string, "periodo": string, "titular": string}. Si no puedes determinar un campo, usa null. Solo devuelve el JSON, nada mas.',
+        prompt: `Analiza esta factura de electricidad de Argentina. Busca estos datos exactos y devuelve SOLO un JSON:
+
+{
+  "proveedor": "EDENOR" o "EDESUR" o "EPEC" o el nombre que figure,
+  "tarifa": "T1-R3" o lo que diga en el campo TARIFA,
+  "tipo_tarifa": "T1" o "T2" o "T3",
+  "actividad": "RESIDENCIAL" o "COMERCIAL" o "INDUSTRIAL",
+  "consumo_kwh": numero total de kWh consumidos (buscar "Total Consumo" o "kWh"),
+  "dias_periodo": dias del periodo de facturacion,
+  "monto_total": monto de "Total a pagar" en pesos,
+  "cargo_fijo": monto del cargo fijo,
+  "cargo_variable_1": monto del primer tramo variable,
+  "cargo_variable_2": monto del segundo tramo variable si existe,
+  "conceptos_electricos": subtotal de conceptos electricos,
+  "impuestos": monto de impuestos y contribuciones,
+  "subsidio": monto del subsidio si existe,
+  "nivel_subsidio": "NIVEL 1" o "NIVEL 2" o "NIVEL 3" o "SIN SUBSIDIO",
+  "titular": nombre del titular,
+  "periodo": periodo de consumo (ej: "18/12/2025 AL 21/01/2026"),
+  "numero_cuenta": numero de cuenta o suministro
+}
+
+Si no puedes determinar un campo usa null. SOLO devuelve el JSON.`,
         images: [base64.split(',')[1]],
         stream: false,
       }),
@@ -127,15 +148,7 @@ async function processFile(file) {
     if (jsonMatch) {
       const extracted = JSON.parse(jsonMatch[0]);
       showBillResult(extracted);
-
-      // Auto-fill consumption
-      if (extracted.consumo_kwh) {
-        document.getElementById('input-kwh').value = extracted.consumo_kwh;
-        setInputMode('kwh');
-      } else if (extracted.monto_total) {
-        document.getElementById('input-money').value = extracted.monto_total;
-        setInputMode('money');
-      }
+      autoFillFromBill(extracted);
     } else {
       throw new Error('No se pudo extraer datos');
     }
@@ -151,15 +164,90 @@ function showBillResult(data) {
   const resultDiv = document.getElementById('bill-result');
   const extractedDiv = document.getElementById('bill-extracted');
 
+  const row = (label, value) => '<div class="cost-row"><span>' + label + '</span><span>' + value + '</span></div>';
+
   let html = '';
-  if (data.proveedor) html += '<div class="cost-row"><span>Proveedor</span><span>' + data.proveedor + '</span></div>';
-  if (data.consumo_kwh) html += '<div class="cost-row"><span>Consumo</span><span>' + data.consumo_kwh + ' kWh</span></div>';
-  if (data.monto_total) html += '<div class="cost-row"><span>Monto</span><span>' + formatARS(data.monto_total) + '</span></div>';
-  if (data.periodo) html += '<div class="cost-row"><span>Periodo</span><span>' + data.periodo + '</span></div>';
-  if (data.titular) html += '<div class="cost-row"><span>Titular</span><span>' + data.titular + '</span></div>';
+  if (data.proveedor) html += row('Proveedor', data.proveedor);
+  if (data.tarifa) html += row('Tarifa', data.tarifa);
+  if (data.tipo_tarifa) html += row('Tipo', data.tipo_tarifa + (data.actividad ? ' — ' + data.actividad : ''));
+  if (data.consumo_kwh) html += row('Consumo', data.consumo_kwh + ' kWh');
+  if (data.dias_periodo) html += row('Dias periodo', data.dias_periodo + ' dias');
+  if (data.monto_total) html += row('Total a pagar', formatARS(data.monto_total));
+  if (data.cargo_fijo) html += row('Cargo fijo', formatARS(data.cargo_fijo));
+  if (data.cargo_variable_1) html += row('Cargo variable 1', formatARS(data.cargo_variable_1));
+  if (data.cargo_variable_2) html += row('Cargo variable 2', formatARS(data.cargo_variable_2));
+  if (data.conceptos_electricos) html += row('Conceptos electricos', formatARS(data.conceptos_electricos));
+  if (data.impuestos) html += row('Impuestos', formatARS(data.impuestos));
+  if (data.subsidio) html += row('Subsidio', formatARS(data.subsidio));
+  if (data.nivel_subsidio) html += row('Nivel subsidio', data.nivel_subsidio);
+  if (data.periodo) html += row('Periodo', data.periodo);
+  if (data.titular) html += row('Titular', data.titular);
+  if (data.numero_cuenta) html += row('Cuenta', data.numero_cuenta);
 
   extractedDiv.innerHTML = html;
   resultDiv.style.display = 'block';
+}
+
+// ---------- Auto-fill from bill ----------
+function autoFillFromBill(data) {
+  // 1. Auto-fill kWh
+  if (data.consumo_kwh) {
+    document.getElementById('input-kwh').value = Math.round(data.consumo_kwh);
+    setInputMode('kwh');
+  }
+
+  // 2. Auto-select tariff based on proveedor + tipo_tarifa + actividad
+  const tariffSel = document.getElementById('tariff');
+  const provider = (data.proveedor || '').toLowerCase();
+  const tipo = (data.tipo_tarifa || 'T1').toUpperCase();
+  const actividad = (data.actividad || '').toLowerCase();
+
+  let bestMatch = '';
+
+  for (const opt of tariffSel.options) {
+    if (!opt.value) continue;
+    const tariff = TARIFFS.find(t => t.id === opt.value);
+    if (!tariff) continue;
+
+    // Match provider
+    const providerMatch = tariff.provider && provider.includes(tariff.provider);
+    if (!providerMatch) continue;
+
+    // Match type (T1/T2/T3)
+    if (tariff.type !== tipo) continue;
+
+    // For T1, try to match residential vs commercial
+    if (tipo === 'T1') {
+      const isResidencial = actividad.includes('residen') || actividad === '';
+      const isResTariff = tariff.id.includes('-res');
+      if (isResidencial && isResTariff) { bestMatch = opt.value; break; }
+      if (!isResidencial && !isResTariff) { bestMatch = opt.value; break; }
+      // Fallback: take first T1 match
+      if (!bestMatch) bestMatch = opt.value;
+    } else {
+      bestMatch = opt.value;
+      break;
+    }
+  }
+
+  if (bestMatch) {
+    tariffSel.value = bestMatch;
+  }
+
+  // 3. Try to auto-select province from provider name
+  const provinceSel = document.getElementById('province');
+  if (provider.includes('edenor') || provider.includes('edesur')) {
+    // EDENOR/EDESUR = Buenos Aires / CABA area
+    if (!provinceSel.value) {
+      provinceSel.value = 'bsas';
+      provinceSel.dispatchEvent(new Event('change'));
+    }
+  } else if (provider.includes('epec')) {
+    if (!provinceSel.value) {
+      provinceSel.value = 'cordoba';
+      provinceSel.dispatchEvent(new Event('change'));
+    }
+  }
 }
 
 function fileToBase64(file) {
@@ -181,7 +269,7 @@ function runCalculation() {
 
   let monthlyKwh;
 
-  if (currentMode === 'kwh' || currentMode === 'upload') {
+  if (currentMode === 'kwh') {
     monthlyKwh = parseFloat(document.getElementById('input-kwh').value);
   } else {
     const amount = parseFloat(document.getElementById('input-money').value);
