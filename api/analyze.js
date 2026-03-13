@@ -70,7 +70,7 @@ function sanitizeResult(raw) {
 export default async function handler(req, res) {
   // CORS
   const origin = req.headers.origin || '';
-  const allowed = ['https://solar-nav.vercel.app', 'http://localhost:3000'];
+  const allowed = ['https://solar-nav.vercel.app', 'https://solarcalculator-ar.vercel.app', 'http://localhost:3000'];
   if (allowed.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
   }
