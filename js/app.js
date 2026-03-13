@@ -113,7 +113,7 @@ async function processFile(file) {
   }
 
   const area = document.getElementById('upload-area');
-  area.innerHTML = '<div class="upload-icon">&#9203;</div><p>Analizando factura con IA...</p>';
+  area.innerHTML = '<div class="upload-icon">&#9203;</div><p>Analizando factura con IA...</p><p style="font-size:0.8rem; color:var(--text-muted);">Esto puede tardar 2-5 minutos</p>';
 
   try {
     // Convert to base64
@@ -142,6 +142,9 @@ async function processFile(file) {
   "subsidio": monto del subsidio si existe,
   "nivel_subsidio": "NIVEL 1" o "NIVEL 2" o "NIVEL 3" o "SIN SUBSIDIO",
   "titular": nombre del titular,
+  "direccion": direccion completa del suministro/servicio,
+  "localidad": ciudad o localidad,
+  "provincia": provincia (ej: "Buenos Aires", "CABA", "Cordoba"),
   "periodo": periodo de consumo (ej: "18/12/2025 AL 21/01/2026"),
   "numero_cuenta": numero de cuenta o suministro
 }
@@ -192,6 +195,9 @@ function showBillResult(data) {
   if (data.nivel_subsidio) html += row('Nivel subsidio', data.nivel_subsidio);
   if (data.periodo) html += row('Periodo', data.periodo);
   if (data.titular) html += row('Titular', data.titular);
+  if (data.direccion) html += row('Direccion', data.direccion);
+  if (data.localidad) html += row('Localidad', data.localidad);
+  if (data.provincia) html += row('Provincia', data.provincia);
   if (data.numero_cuenta) html += row('Cuenta', data.numero_cuenta);
 
   extractedDiv.innerHTML = html;
@@ -257,18 +263,39 @@ function autoFillFromBill(data) {
     }
   }
 
-  // 4. Try to auto-select province from provider name
+  // 4. Auto-select province from bill address/province field
   const provinceSel = document.getElementById('province');
-  if (provider.includes('edenor') || provider.includes('edesur')) {
-    if (!provinceSel.value) {
-      provinceSel.value = 'bsas';
-      provinceSel.dispatchEvent(new Event('change'));
+  const billProvincia = (data.provincia || '').toLowerCase();
+  const billLocalidad = (data.localidad || '').toLowerCase();
+  const billDireccion = (data.direccion || '').toLowerCase();
+  const locationText = billProvincia + ' ' + billLocalidad + ' ' + billDireccion;
+
+  let matchedProvince = '';
+
+  // Try exact match from PROVINCES list
+  for (const p of PROVINCES) {
+    const pName = p.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const locNorm = locationText.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (locNorm.includes(pName) || locNorm.includes(p.id)) {
+      matchedProvince = p.id;
+      break;
     }
-  } else if (provider.includes('epec')) {
-    if (!provinceSel.value) {
-      provinceSel.value = 'cordoba';
-      provinceSel.dispatchEvent(new Event('change'));
-    }
+  }
+
+  // Fallback: infer from provider
+  if (!matchedProvince) {
+    if (provider.includes('edenor') || provider.includes('edesur')) matchedProvince = 'bsas';
+    else if (provider.includes('epec')) matchedProvince = 'cordoba';
+    else if (provider.includes('epe ') || provider.includes('epe santa')) matchedProvince = 'santafe';
+    else if (provider.includes('eden') || provider.includes('edes')) matchedProvince = 'bsas';
+    else if (provider.includes('edelap')) matchedProvince = 'bsas';
+    else if (provider.includes('emsa')) matchedProvince = 'misiones';
+    else if (provider.includes('edesa')) matchedProvince = 'salta';
+  }
+
+  if (matchedProvince) {
+    provinceSel.value = matchedProvince;
+    provinceSel.dispatchEvent(new Event('change'));
   }
 }
 
