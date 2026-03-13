@@ -244,10 +244,14 @@ function renderResults(r) {
   el('r-gen-kwh').textContent = formatNumber(r.annualGenerationKwh);
 
   // Equipment list
-  let equipHtml = '<div class="cost-row"><span>' + r.numPanels + 'x ' + r.selectedPanel + '</span><span>' + r.panelWatts + 'W c/u</span></div>';
-  r.selectedInverters.forEach(inv => {
-    equipHtml += '<div class="cost-row"><span>' + (inv.qty > 1 ? inv.qty + 'x ' : '') + inv.name + '</span><span>' + (inv.watts / 1000) + ' kW</span></div>';
-  });
+  let equipHtml = '<div class="cost-row"><span><strong>' + r.numPanels + 'x</strong> ' + r.selectedPanel + '</span><span>' + r.panelWatts + 'W c/u — ' + formatARS(r.panelCostARS) + '</span></div>';
+  if (r.selectedInverters.length > 0) {
+    r.selectedInverters.forEach(inv => {
+      equipHtml += '<div class="cost-row"><span><strong>' + (inv.qty > 1 ? inv.qty + 'x ' : '') + '</strong>' + inv.name + '</span><span>' + (inv.watts / 1000) + ' kW — ' + formatARS(inv.priceARS || 0) + '</span></div>';
+    });
+  } else {
+    equipHtml += '<div class="cost-row"><span>Inversor</span><span style="color:var(--warning);">Consultar — sistema requiere dimensionamiento especial</span></div>';
+  }
   el('r-equipment-list').innerHTML = equipHtml;
 
   // Show results

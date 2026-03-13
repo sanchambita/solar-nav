@@ -114,6 +114,7 @@ function calculateSolar(params) {
       name: i.product.name,
       qty: i.qty,
       watts: i.product.watts,
+      priceARS: i.qty * calcFinalPriceARS(i.product),
     })),
     areaM2,
 
