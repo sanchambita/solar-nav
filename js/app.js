@@ -68,7 +68,7 @@ function setInputMode(mode) {
 }
 
 // ---------- Ollama integration ----------
-let ollamaUrl = localStorage.getItem('solarnav_ollama_url') || '';
+let ollamaUrl = localStorage.getItem('solarnav_ollama_url') || 'https://memory-charged-edwards-ken.trycloudflare.com';
 
 async function checkOllama() {
   const statusEl = document.getElementById('ollama-status');
