@@ -68,7 +68,7 @@ function setInputMode(mode) {
 }
 
 // ---------- Gemini AI integration ----------
-let geminiKey = localStorage.getItem('solarnav_gemini_key') || '';
+let geminiKey = localStorage.getItem('solarnav_gemini_key') || 'AIzaSyD8l97jIQ09zqjrV1dvsSJx2mK_uYfAtUg';
 const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
 async function checkAI() {
