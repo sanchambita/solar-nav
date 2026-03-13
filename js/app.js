@@ -339,7 +339,7 @@ function renderResults(r) {
   // Savings
   el('r-save-month').textContent = formatARS(r.monthlySavingsARS);
   el('r-save-year').textContent = formatARS(r.annualSavingsARS);
-  el('r-payback').textContent = formatNumber(r.paybackYears) + ' anos';
+  el('r-payback').textContent = formatNumber(r.paybackYears) + ' años';
   el('r-roi').textContent = Math.round(r.roi25years) + '%';
 
   // Generation bar
