@@ -52,8 +52,8 @@
         </div>
       </div>
       <div class="form-group">
-        <label>URL Ollama (ej: http://192.168.1.100:11434)</label>
-        <input type="text" id="cfg-ollama" placeholder="http://tu-vm:11434">
+        <label>Gemini API Key (<a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--accent);">obtener gratis</a>)</label>
+        <input type="text" id="cfg-gemini" placeholder="AIzaSy...">
       </div>
       <button class="btn btn-primary btn-sm" onclick="saveAdminConfig()">Guardar configuracion</button>
     </div>
@@ -168,7 +168,7 @@
       document.getElementById('cfg-margin').value = Math.round((cfg.margin - 1) * 100);
       document.getElementById('cfg-efficiency').value = Math.round(cfg.efficiency * 100);
       document.getElementById('cfg-install').value = Math.round(cfg.installCostPercent * 100);
-      document.getElementById('cfg-ollama').value = localStorage.getItem('solarnav_ollama_url') || '';
+      document.getElementById('cfg-gemini').value = localStorage.getItem('solarnav_gemini_key') || '';
       renderProductTable();
     }
 
@@ -180,8 +180,8 @@
       cfg.installCostPercent = parseFloat(document.getElementById('cfg-install').value) / 100;
       saveConfig(cfg);
 
-      const ollamaUrl = document.getElementById('cfg-ollama').value.replace(/\/$/, '');
-      localStorage.setItem('solarnav_ollama_url', ollamaUrl);
+      const geminiKey = document.getElementById('cfg-gemini').value.trim();
+      localStorage.setItem('solarnav_gemini_key', geminiKey);
 
       alert('Configuracion guardada');
       renderProductTable();

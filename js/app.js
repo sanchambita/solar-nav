@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
   populateTariffs();
   renderProducts();
   setupUpload();
-  checkOllama();
+  checkAI();
 });
 
 // ---------- Province selector ----------
@@ -67,24 +67,30 @@ function setInputMode(mode) {
   document.getElementById('mode-money').style.display = mode === 'money' ? 'block' : 'none';
 }
 
-// ---------- Ollama integration ----------
-let ollamaUrl = localStorage.getItem('solarnav_ollama_url') || 'https://memory-charged-edwards-ken.trycloudflare.com';
+// ---------- Gemini AI integration ----------
+let geminiKey = localStorage.getItem('solarnav_gemini_key') || '';
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
-async function checkOllama() {
+async function checkAI() {
   const statusEl = document.getElementById('ollama-status');
-  if (!ollamaUrl) {
-    statusEl.innerHTML = '<span class="ollama-status disconnected">Ollama no configurado — usa input manual o configura en Admin</span>';
+  if (!geminiKey) {
+    statusEl.innerHTML = '<span class="ollama-status disconnected">Gemini no configurado — configura la API Key en <a href="/admin.html" style="color:var(--accent);">Admin</a></span>';
     return;
   }
   try {
-    const res = await fetch(ollamaUrl + '/api/tags', { signal: AbortSignal.timeout(3000) });
+    const res = await fetch(GEMINI_URL + '?key=' + geminiKey, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: 'test' }] }] }),
+      signal: AbortSignal.timeout(5000),
+    });
     if (res.ok) {
-      statusEl.innerHTML = '<span class="ollama-status connected">Ollama conectado</span>';
+      statusEl.innerHTML = '<span class="ollama-status connected">Gemini AI conectado</span>';
     } else {
       throw new Error();
     }
   } catch {
-    statusEl.innerHTML = '<span class="ollama-status disconnected">Ollama no disponible en ' + ollamaUrl + '</span>';
+    statusEl.innerHTML = '<span class="ollama-status disconnected">Gemini no disponible — verifica tu API Key en Admin</span>';
   }
 }
 
@@ -106,25 +112,7 @@ function setupUpload() {
   });
 }
 
-async function processFile(file) {
-  if (!ollamaUrl) {
-    alert('Configura la URL de Ollama en Admin para usar esta funcion.');
-    return;
-  }
-
-  const area = document.getElementById('upload-area');
-  area.innerHTML = '<div class="upload-icon">&#9203;</div><p>Analizando factura con IA...</p><p style="font-size:0.8rem; color:var(--text-muted);">Esto puede tardar 2-5 minutos</p>';
-
-  try {
-    // Convert to base64
-    const base64 = await fileToBase64(file);
-
-    const response = await fetch(ollamaUrl + '/api/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'llava',
-        prompt: `Analiza esta factura de electricidad de Argentina. Busca estos datos exactos y devuelve SOLO un JSON:
+const BILL_PROMPT = `Analiza esta factura de electricidad de Argentina. Busca estos datos exactos y devuelve SOLO un JSON sin markdown:
 
 {
   "proveedor": "EDENOR" o "EDESUR" o "EPEC" o el nombre que figure,
@@ -149,21 +137,50 @@ async function processFile(file) {
   "numero_cuenta": numero de cuenta o suministro
 }
 
-Si no puedes determinar un campo usa null. SOLO devuelve el JSON.`,
-        images: [base64.split(',')[1]],
-        stream: false,
+Si no puedes determinar un campo usa null. SOLO devuelve el JSON, sin backticks ni markdown.`;
+
+async function processFile(file) {
+  if (!geminiKey) {
+    alert('Configura la API Key de Gemini en Admin para usar esta funcion.');
+    return;
+  }
+
+  const area = document.getElementById('upload-area');
+  area.innerHTML = '<div class="upload-icon">&#9203;</div><p>Analizando factura con IA...</p><p style="font-size:0.8rem; color:var(--text-muted);">Unos segundos...</p>';
+
+  try {
+    const base64 = await fileToBase64(file);
+    const mimeType = file.type || 'image/jpeg';
+    const b64data = base64.split(',')[1];
+
+    const response = await fetch(GEMINI_URL + '?key=' + geminiKey, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          parts: [
+            { text: BILL_PROMPT },
+            { inline_data: { mime_type: mimeType, data: b64data } }
+          ]
+        }]
       }),
     });
 
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error?.message || 'Error de Gemini API');
+    }
+
     const data = await response.json();
-    const jsonMatch = data.response.match(/\{[\s\S]*\}/);
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
 
     if (jsonMatch) {
       const extracted = JSON.parse(jsonMatch[0]);
       showBillResult(extracted);
       autoFillFromBill(extracted);
     } else {
-      throw new Error('No se pudo extraer datos');
+      throw new Error('No se pudo extraer datos de la factura');
     }
   } catch (err) {
     area.innerHTML = '<div class="upload-icon">&#10060;</div><p>Error al analizar: ' + err.message + '</p><p>Intenta con input manual</p>';
