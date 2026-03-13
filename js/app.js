@@ -67,31 +67,10 @@ function setInputMode(mode) {
   document.getElementById('mode-money').style.display = mode === 'money' ? 'block' : 'none';
 }
 
-// ---------- Gemini AI integration ----------
-let geminiKey = localStorage.getItem('solarnav_gemini_key') || 'AIzaSyD8l97jIQ09zqjrV1dvsSJx2mK_uYfAtUg';
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
-
+// ---------- AI integration (server-side proxy) ----------
 async function checkAI() {
   const statusEl = document.getElementById('ollama-status');
-  if (!geminiKey) {
-    statusEl.innerHTML = '<span class="ollama-status disconnected">Gemini no configurado — configura la API Key en <a href="/admin.html" style="color:var(--accent);">Admin</a></span>';
-    return;
-  }
-  try {
-    const res = await fetch(GEMINI_URL + '?key=' + geminiKey, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: 'test' }] }] }),
-      signal: AbortSignal.timeout(5000),
-    });
-    if (res.ok) {
-      statusEl.innerHTML = '<span class="ollama-status connected">Gemini AI conectado</span>';
-    } else {
-      throw new Error();
-    }
-  } catch {
-    statusEl.innerHTML = '<span class="ollama-status disconnected">Gemini no disponible — verifica tu API Key en Admin</span>';
-  }
+  statusEl.innerHTML = '<span class="ollama-status connected">IA lista para analizar facturas</span>';
 }
 
 // ---------- File upload ----------
@@ -112,39 +91,7 @@ function setupUpload() {
   });
 }
 
-const BILL_PROMPT = `Analiza esta factura de electricidad de Argentina. Busca estos datos exactos y devuelve SOLO un JSON sin markdown:
-
-{
-  "proveedor": "EDENOR" o "EDESUR" o "EPEC" o el nombre que figure,
-  "tarifa": "T1-R3" o lo que diga en el campo TARIFA,
-  "tipo_tarifa": "T1" o "T2" o "T3",
-  "actividad": "RESIDENCIAL" o "COMERCIAL" o "INDUSTRIAL",
-  "consumo_kwh": numero total de kWh consumidos (buscar "Total Consumo" o "kWh"),
-  "dias_periodo": dias del periodo de facturacion,
-  "monto_total": monto de "Total a pagar" en pesos,
-  "cargo_fijo": monto del cargo fijo,
-  "cargo_variable_1": monto del primer tramo variable,
-  "cargo_variable_2": monto del segundo tramo variable si existe,
-  "conceptos_electricos": subtotal de conceptos electricos,
-  "impuestos": monto de impuestos y contribuciones,
-  "subsidio": monto del subsidio si existe,
-  "nivel_subsidio": "NIVEL 1" o "NIVEL 2" o "NIVEL 3" o "SIN SUBSIDIO",
-  "titular": nombre del titular,
-  "direccion": direccion completa del suministro/servicio,
-  "localidad": ciudad o localidad,
-  "provincia": provincia (ej: "Buenos Aires", "CABA", "Cordoba"),
-  "periodo": periodo de consumo (ej: "18/12/2025 AL 21/01/2026"),
-  "numero_cuenta": numero de cuenta o suministro
-}
-
-Si no puedes determinar un campo usa null. SOLO devuelve el JSON, sin backticks ni markdown.`;
-
 async function processFile(file) {
-  if (!geminiKey) {
-    alert('Configura la API Key de Gemini en Admin para usar esta funcion.');
-    return;
-  }
-
   const area = document.getElementById('upload-area');
   area.innerHTML = '<div class="upload-icon">&#9203;</div><p>Analizando factura con IA...</p><p style="font-size:0.8rem; color:var(--text-muted);">Unos segundos...</p>';
 
@@ -153,35 +100,20 @@ async function processFile(file) {
     const mimeType = file.type || 'image/jpeg';
     const b64data = base64.split(',')[1];
 
-    const response = await fetch(GEMINI_URL + '?key=' + geminiKey, {
+    const response = await fetch('/api/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{
-          parts: [
-            { text: BILL_PROMPT },
-            { inline_data: { mime_type: mimeType, data: b64data } }
-          ]
-        }]
-      }),
+      body: JSON.stringify({ image: b64data, mimeType }),
     });
 
-    if (!response.ok) {
-      const err = await response.json();
-      throw new Error(err.error?.message || 'Error de Gemini API');
-    }
-
     const data = await response.json();
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
 
-    if (jsonMatch) {
-      const extracted = JSON.parse(jsonMatch[0]);
-      showBillResult(extracted);
-      autoFillFromBill(extracted);
-    } else {
-      throw new Error('No se pudo extraer datos de la factura');
+    if (!response.ok) {
+      throw new Error(data.error || 'Error al analizar');
     }
+
+    showBillResult(data.result);
+    autoFillFromBill(data.result);
   } catch (err) {
     area.innerHTML = '<div class="upload-icon">&#10060;</div><p>Error al analizar: ' + err.message + '</p><p>Intenta con input manual</p>';
   }
