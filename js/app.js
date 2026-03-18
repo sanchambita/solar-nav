@@ -138,16 +138,27 @@ async function processFile(file) {
   }
 
   const isPdf = mimeType === 'application/pdf';
-  area.innerHTML = '<div class="upload-icon">&#9203;</div><p>Analizando factura con IA...</p><p style="font-size:0.8rem; color:var(--text-muted);">' + (isPdf ? 'Procesando PDF (puede tardar unos segundos mas)...' : 'Unos segundos...') + '</p>';
+  area.innerHTML = '<div class="upload-icon">&#9203;</div><p>Analizando factura con IA...</p><p style="font-size:0.8rem; color:var(--text-muted);">' + (isPdf ? 'Convirtiendo PDF a imagen...' : 'Unos segundos...') + '</p>';
 
   try {
-    const base64 = await fileToBase64(file);
-    const b64data = base64.split(',')[1];
+    let b64data, sendMime;
+
+    if (isPdf) {
+      // Convert PDF to JPEG in browser so Groq can process it
+      const jpegDataUrl = await pdfToImage(file);
+      b64data = jpegDataUrl.split(',')[1];
+      sendMime = 'image/jpeg';
+      area.innerHTML = '<div class="upload-icon">&#9203;</div><p>Analizando factura con IA...</p><p style="font-size:0.8rem; color:var(--text-muted);">Enviando a Groq...</p>';
+    } else {
+      const base64 = await fileToBase64(file);
+      b64data = base64.split(',')[1];
+      sendMime = mimeType;
+    }
 
     const response = await fetch('/api/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ image: b64data, mimeType }),
+      body: JSON.stringify({ image: b64data, mimeType: sendMime }),
     });
 
     const data = await response.json();
@@ -300,6 +311,43 @@ function autoFillFromBill(data) {
     provinceSel.value = matchedProvince;
     provinceSel.dispatchEvent(new Event('change'));
   }
+}
+
+// Convert PDF to a single JPEG image using pdf.js (dynamic import)
+async function pdfToImage(file) {
+  const pdfjsLib = await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@4.9.155/build/pdf.min.mjs');
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.9.155/build/pdf.worker.min.mjs';
+
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+  // Render each page to canvas
+  const canvases = [];
+  const maxPages = Math.min(pdf.numPages, 5); // limit to 5 pages
+  for (let i = 1; i <= maxPages; i++) {
+    const page = await pdf.getPage(i);
+    const viewport = page.getViewport({ scale: 1.5 });
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    canvases.push(canvas);
+  }
+
+  // Combine all pages into one tall image
+  const totalHeight = canvases.reduce((h, c) => h + c.height, 0);
+  const maxWidth = Math.max(...canvases.map(c => c.width));
+  const combined = document.createElement('canvas');
+  combined.width = maxWidth;
+  combined.height = totalHeight;
+  const ctx = combined.getContext('2d');
+  let y = 0;
+  for (const c of canvases) {
+    ctx.drawImage(c, 0, y);
+    y += c.height;
+  }
+
+  return combined.toDataURL('image/jpeg', 0.80);
 }
 
 function fileToBase64(file) {
