@@ -7,6 +7,7 @@
 document.addEventListener('DOMContentLoaded', () => {
   populateProvinces();
   populateTariffs();
+  populateEquipment();
   renderProducts();
   setupUpload();
   checkAI();
@@ -43,6 +44,36 @@ function populateTariffs() {
     opt.textContent = t.name;
     sel.appendChild(opt);
   });
+}
+
+// ---------- Equipment selectors ----------
+function populateEquipment() {
+  const products = getProducts();
+
+  // Panels
+  const panelSel = document.getElementById('panel-select');
+  if (!panelSel) return;
+  products.filter(p => p.category === 'panel').sort((a, b) => b.watts - a.watts).forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = p.watts + 'W ' + p.brand + ' — ' + formatARS(calcFinalPriceARS(p));
+    panelSel.appendChild(opt);
+  });
+
+  // Inverters (all types)
+  const invSel = document.getElementById('inverter-select');
+  products.filter(p => (p.category === 'inversor' || p.category === 'inversor-offgrid' || p.category === 'inversor-hibrido') && p.watts)
+    .sort((a, b) => a.watts - b.watts).forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      const kw = p.watts >= 1000 ? (p.watts/1000) + 'kW' : p.watts + 'W';
+      const cat = p.category === 'inversor' ? '' : p.category === 'inversor-hibrido' ? ' [Hibrido]' : ' [Off-Grid]';
+      opt.textContent = kw + ' ' + p.brand + cat + ' — ' + formatARS(calcFinalPriceARS(p));
+      invSel.appendChild(opt);
+    });
+
+  // Show equipment step
+  document.getElementById('equipment-step').style.display = 'block';
 }
 
 // ---------- Entry mode (auto/manual) ----------
@@ -397,13 +428,20 @@ function runCalculation() {
     return;
   }
 
+  // Equipment overrides
+  const panelSelVal = document.getElementById('panel-select')?.value;
+  const invSelVal = document.getElementById('inverter-select')?.value;
+  const numPanelsInput = parseInt(document.getElementById('num-panels-override')?.value) || 0;
+
   const result = calculateSolar({
     provinceId, monthlyKwh, tariffId,
     systemType: currentSystemType,
-    numPanelsOverride: currentPanelOverride,
+    numPanelsOverride: numPanelsInput > 0 ? numPanelsInput : currentPanelOverride,
     autonomyDays: parseInt(document.getElementById('autonomy-days').value),
     batteryType: document.getElementById('battery-type').value,
     essentialLoadPct: parseInt(document.getElementById('essential-load').value),
+    panelId: panelSelVal ? parseInt(panelSelVal) : null,
+    inverterId: invSelVal ? parseInt(invSelVal) : null,
   });
 
   if (result.error) {

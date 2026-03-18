@@ -158,6 +158,33 @@
       </div>
     </div>
 
+    <!-- Equipment selection (optional) -->
+    <div class="step" id="equipment-step" style="display:none;">
+      <div class="step-header">
+        <div class="step-number">4</div>
+        <h2>Equipamiento <span style="font-size:0.8rem; color:var(--text-muted);">(opcional)</span></h2>
+      </div>
+      <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:0.75rem;">Por defecto se selecciona automaticamente. Podes cambiarlo aca.</p>
+      <div class="input-row">
+        <div class="form-group">
+          <label>Panel solar</label>
+          <select id="panel-select">
+            <option value="">Automatico (mejor disponible)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Inversor</label>
+          <select id="inverter-select">
+            <option value="">Automatico (segun kWp)</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Cantidad de paneles (0 = automatico)</label>
+        <input type="number" id="num-panels-override" value="0" min="0" step="1" style="max-width:120px;">
+      </div>
+    </div>
+
     <!-- Calculate Button -->
     <button class="btn btn-primary" onclick="runCalculation()" id="calc-btn">
       Calcular ahorro solar
