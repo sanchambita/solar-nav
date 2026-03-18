@@ -1,6 +1,6 @@
 // ============================================================
 // SOLAR NAV - App Controller
-// UI interactions, rendering, Ollama integration
+// UI interactions, rendering, charts, WhatsApp, PDF
 // ============================================================
 
 // ---------- Init ----------
@@ -82,7 +82,6 @@ function setSystemType(type) {
   battOpts.style.display = type === 'ongrid' ? 'none' : 'block';
   essGroup.style.display = type === 'hybrid' ? 'block' : 'none';
 
-  // Set default autonomy days
   const slider = document.getElementById('autonomy-days');
   if (type === 'offgrid') { slider.value = 3; }
   else if (type === 'hybrid') { slider.value = 2; }
@@ -97,7 +96,7 @@ function adjustPanels(delta) {
   runCalculation();
 }
 
-// ---------- AI integration (server-side proxy) ----------
+// ---------- AI integration ----------
 async function checkAI() {
   const statusEl = document.getElementById('ollama-status');
   statusEl.innerHTML = '<span class="ollama-status connected">IA lista para analizar facturas</span>';
@@ -123,11 +122,26 @@ function setupUpload() {
 
 async function processFile(file) {
   const area = document.getElementById('upload-area');
-  area.innerHTML = '<div class="upload-icon">&#9203;</div><p>Analizando factura con IA...</p><p style="font-size:0.8rem; color:var(--text-muted);">Unos segundos...</p>';
+
+  // Validar tipo de archivo
+  const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'];
+  const mimeType = file.type || '';
+  if (!validTypes.includes(mimeType)) {
+    area.innerHTML = '<div class="upload-icon">&#10060;</div><p>Formato no soportado</p><p style="font-size:0.8rem; color:var(--text-muted);">Usa JPG, PNG o PDF</p>';
+    return;
+  }
+
+  // Validar tamaño (10MB)
+  if (file.size > 10 * 1024 * 1024) {
+    area.innerHTML = '<div class="upload-icon">&#10060;</div><p>Archivo muy grande (max 10MB)</p><p style="font-size:0.8rem; color:var(--text-muted);">Intenta con una foto de menor resolucion</p>';
+    return;
+  }
+
+  const isPdf = mimeType === 'application/pdf';
+  area.innerHTML = '<div class="upload-icon">&#9203;</div><p>Analizando factura con IA...</p><p style="font-size:0.8rem; color:var(--text-muted);">' + (isPdf ? 'Procesando PDF (puede tardar unos segundos mas)...' : 'Unos segundos...') + '</p>';
 
   try {
     const base64 = await fileToBase64(file);
-    const mimeType = file.type || 'image/jpeg';
     const b64data = base64.split(',')[1];
 
     const response = await fetch('/api/analyze', {
@@ -145,11 +159,10 @@ async function processFile(file) {
     showBillResult(data.result);
     autoFillFromBill(data.result);
   } catch (err) {
-    area.innerHTML = '<div class="upload-icon">&#10060;</div><p>Error al analizar: ' + esc(err.message) + '</p><p>Intenta con input manual</p>';
+    area.innerHTML = '<div class="upload-icon">&#10060;</div><p>Error: ' + esc(err.message) + '</p><p style="font-size:0.8rem; color:var(--text-muted);">Intenta con otra foto/PDF o usa el modo manual</p>';
   }
 }
 
-// Escape HTML entities to prevent XSS
 function esc(str) {
   const div = document.createElement('div');
   div.textContent = String(str);
@@ -192,14 +205,12 @@ function showBillResult(data) {
 
 // ---------- Auto-fill from bill ----------
 function autoFillFromBill(data) {
-  // 1. Auto-fill kWh (both hidden auto field and manual input)
   if (data.consumo_kwh) {
     const kwh = Math.round(data.consumo_kwh);
     document.getElementById('auto-kwh').value = kwh;
     document.getElementById('input-kwh').value = kwh;
   }
 
-  // 2. Match tariff based on proveedor + tipo_tarifa + actividad
   const provider = (data.proveedor || '').toLowerCase();
   const tipo = (data.tipo_tarifa || 'T1').toUpperCase();
   const actividad = (data.actividad || '').toLowerCase();
@@ -223,7 +234,6 @@ function autoFillFromBill(data) {
     }
   }
 
-  // Store in hidden field for auto mode
   let autoTariff = document.getElementById('auto-tariff');
   if (!autoTariff) {
     autoTariff = document.createElement('input');
@@ -233,12 +243,10 @@ function autoFillFromBill(data) {
   }
   autoTariff.value = bestMatch;
 
-  // Also set manual tariff dropdown
   if (bestMatch) {
     document.getElementById('tariff').value = bestMatch;
   }
 
-  // 3. Show detected tariff in bill result
   if (bestMatch) {
     const matchedTariff = TARIFFS.find(t => t.id === bestMatch);
     if (matchedTariff) {
@@ -249,7 +257,6 @@ function autoFillFromBill(data) {
     }
   }
 
-  // 4. Auto-select province from bill address/province field
   const provinceSel = document.getElementById('province');
   const billProvincia = (data.provincia || '').toLowerCase();
   const billLocalidad = (data.localidad || '').toLowerCase();
@@ -258,7 +265,6 @@ function autoFillFromBill(data) {
 
   let matchedProvince = '';
 
-  // Try exact match from PROVINCES list
   for (const p of PROVINCES) {
     const pName = p.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     const locNorm = locationText.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -268,7 +274,6 @@ function autoFillFromBill(data) {
     }
   }
 
-  // Fallback: infer from provider
   if (!matchedProvince) {
     if (provider.includes('edenor') || provider.includes('edesur')) matchedProvince = 'bsas';
     else if (provider.includes('epec')) matchedProvince = 'cordoba';
@@ -303,7 +308,6 @@ function runCalculation() {
   let tariffId;
 
   if (entryMode === 'auto') {
-    // Auto mode: data comes from bill analysis
     monthlyKwh = parseFloat(document.getElementById('auto-kwh').value);
     tariffId = document.getElementById('auto-tariff') ? document.getElementById('auto-tariff').value : '';
 
@@ -316,7 +320,6 @@ function runCalculation() {
       return;
     }
   } else {
-    // Manual mode
     tariffId = document.getElementById('tariff').value;
     if (!tariffId) { alert('Selecciona un proveedor de energia'); return; }
 
@@ -360,23 +363,24 @@ function renderResults(r) {
   // System type
   el('r-system-type').textContent = r.systemTypeLabel;
 
+  // Off-grid warning
+  const warningEl = el('r-offgrid-warning');
+  if (r.offgridWarning) {
+    warningEl.textContent = r.offgridWarning;
+    warningEl.style.display = 'block';
+  } else {
+    warningEl.style.display = 'none';
+  }
+
+  // Hero metrics strip
+  el('r-power').textContent = formatNumber(r.systemKwp);
+  el('r-save-month-hero').textContent = formatARS(r.monthlySavingsARS);
+  el('r-payback-hero').textContent = r.paybackYears >= 50 ? 'N/A' : formatNumber(r.paybackYears) + ' años';
+  el('r-coverage').textContent = Math.round(r.coveragePercent) + '%';
+
   // Panel adjuster
   el('r-panels').textContent = r.numPanels;
   el('r-panel-rec').textContent = r.numPanels === r.recommendedPanels ? '(recomendado)' : '(recomendado: ' + r.recommendedPanels + ')';
-
-  // Key metrics
-  el('r-power').textContent = formatNumber(r.systemKwp);
-  el('r-area').textContent = formatNumber(r.areaM2);
-  el('r-coverage').textContent = Math.round(r.coveragePercent) + '%';
-
-  // Battery card
-  const battCard = el('r-battery-card');
-  if (r.systemType !== 'ongrid' && r.batteryKwh > 0) {
-    battCard.style.display = 'block';
-    el('r-battery-kwh').textContent = r.batteryKwh;
-  } else {
-    battCard.style.display = 'none';
-  }
 
   // Bill comparison
   el('r-bill-before').textContent = formatARS(r.monthlyBillBefore);
@@ -412,16 +416,26 @@ function renderResults(r) {
   el('r-payback').textContent = r.paybackYears >= 50 ? 'N/A' : formatNumber(r.paybackYears) + ' años';
   el('r-roi').textContent = Math.round(r.roi25years) + '%';
 
-  // Generation bar
-  const pct = Math.min(100, r.coveragePercent);
-  el('r-gen-bar').style.width = pct + '%';
-  el('r-gen-bar').textContent = Math.round(pct) + '%';
-  el('r-gen-label').textContent = formatNumber(r.monthlyGenerationKwh) + ' / ' + formatNumber(r.monthlyKwh) + ' kWh/mes';
+  // Battery card
+  const battCard = el('r-battery-card');
+  if (r.systemType !== 'ongrid' && r.batteryKwh > 0) {
+    battCard.style.display = 'block';
+    el('r-battery-kwh').textContent = r.batteryKwh;
+    el('r-battery-count').textContent = r.batteryCount;
+  } else {
+    battCard.style.display = 'none';
+  }
 
   // Environmental
   el('r-co2').textContent = formatNumber(r.annualCO2kg);
   el('r-trees').textContent = r.treesEquivalent;
   el('r-gen-kwh').textContent = formatNumber(r.annualGenerationKwh);
+  el('r-area').textContent = formatNumber(r.areaM2);
+
+  // Projection info
+  const cfg = getConfig();
+  el('r-degradation').textContent = ((cfg.panelDegradation || 0.005) * 100).toFixed(1);
+  el('r-inflation').textContent = Math.round((cfg.tariffInflation || 0.30) * 100);
 
   // Equipment list
   let equipHtml = '<div class="cost-row"><span><strong>' + esc(r.numPanels + 'x') + '</strong> ' + esc(r.selectedPanel) + '</span><span>' + r.panelWatts + 'W c/u — ' + formatARS(r.panelCostARS) + '</span></div>';
@@ -441,6 +455,45 @@ function renderResults(r) {
   const resultsEl = document.getElementById('results');
   resultsEl.classList.add('visible');
   resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  // Show WhatsApp float
+  document.getElementById('whatsapp-float').style.display = 'flex';
+
+  // Render charts (delayed to ensure DOM is visible)
+  setTimeout(() => {
+    if (typeof Chart !== 'undefined') {
+      renderMonthlyChart('chart-monthly', r.monthlyGeneration, r.monthlyKwh);
+      renderProjectionChart('chart-projection', r.projection);
+      renderCostDonut('chart-costs', r);
+    }
+  }, 100);
+}
+
+// ---------- WhatsApp ----------
+function sendWhatsApp() {
+  const cfg = getConfig();
+  const phone = cfg.whatsappNumber || '5491155881126';
+  let msg = 'Hola! ';
+
+  if (currentResult) {
+    const r = currentResult;
+    msg += 'Calcule un sistema solar de ' + formatNumber(r.systemKwp) + ' kWp';
+    msg += ' (' + r.systemTypeLabel + ')';
+    msg += ' para mi casa en ' + r.province + '.';
+    msg += ' Consumo: ' + formatNumber(r.monthlyKwh) + ' kWh/mes.';
+    msg += ' Me interesa un presupuesto.';
+  } else {
+    msg += 'Me interesa un presupuesto de energia solar.';
+  }
+
+  window.open('https://wa.me/' + encodeURIComponent(phone) + '?text=' + encodeURIComponent(msg), '_blank');
+}
+
+function consultProduct(productName) {
+  const cfg = getConfig();
+  const phone = cfg.whatsappNumber || '5491155881126';
+  const msg = 'Hola! Me interesa consultar por: ' + productName;
+  window.open('https://wa.me/' + encodeURIComponent(phone) + '?text=' + encodeURIComponent(msg), '_blank');
 }
 
 // ---------- Category Labels ----------
@@ -458,11 +511,22 @@ const CATEGORY_LABELS = {
   'powermeter': 'Powermeter',
 };
 
-// Category filter + order
 const CATEGORY_ORDER = ['panel','inversor','inversor-offgrid','inversor-hibrido','bateria','estructura','proteccion','monitoring','wifi','termotanque','powermeter'];
 
-// ---------- Render Products ----------
+// ---------- Products ----------
 let activeFilter = 'all';
+let searchQuery = '';
+let sortMode = 'default';
+
+function searchProducts(query) {
+  searchQuery = query.toLowerCase();
+  renderProducts();
+}
+
+function sortProducts(mode) {
+  sortMode = mode;
+  renderProducts();
+}
 
 function renderProducts() {
   const grid = document.getElementById('product-grid');
@@ -493,8 +557,25 @@ function renderProducts() {
     filterContainer.innerHTML += `<button class="btn btn-sm ${activeFilter === cat ? 'btn-primary' : 'btn-secondary'}" onclick="filterProducts('${cat}')">${label} (${count})</button>`;
   });
 
-  // Filter and render
-  const filtered = activeFilter === 'all' ? products : products.filter(p => p.category === activeFilter);
+  // Filter
+  let filtered = activeFilter === 'all' ? products : products.filter(p => p.category === activeFilter);
+
+  // Search
+  if (searchQuery) {
+    filtered = filtered.filter(p =>
+      p.name.toLowerCase().includes(searchQuery) ||
+      p.description.toLowerCase().includes(searchQuery) ||
+      (p.brand && p.brand.toLowerCase().includes(searchQuery))
+    );
+  }
+
+  // Sort
+  if (sortMode === 'price-asc') {
+    filtered.sort((a, b) => calcFinalPriceARS(a) - calcFinalPriceARS(b));
+  } else if (sortMode === 'price-desc') {
+    filtered.sort((a, b) => calcFinalPriceARS(b) - calcFinalPriceARS(a));
+  }
+
   grid.innerHTML = '';
 
   filtered.forEach(p => {
@@ -506,10 +587,11 @@ function renderProducts() {
     card.className = 'product-card';
     card.innerHTML = `
       <span class="category-tag">${label}</span>
-      <h3>${p.name}</h3>
-      <p class="desc">${p.description}</p>
+      <h3>${esc(p.name)}</h3>
+      <p class="desc">${esc(p.description)}</p>
       <div class="price">${formatARS(priceARS)}</div>
       <div class="price-usd">${formatUSD(usd)} + IVA ${(p.iva * 100).toFixed(1)}%</div>
+      <button class="btn-consult" onclick="consultProduct('${esc(p.name).replace(/'/g, "\\'")}')">Consultar</button>
     `;
     grid.appendChild(card);
   });
@@ -524,12 +606,30 @@ function filterProducts(cat) {
 function exportPDF() {
   if (!currentResult) return;
   const r = currentResult;
+  const cfg = getConfig();
   const date = new Date().toLocaleDateString('es-AR');
 
   const batterySection = r.systemType !== 'ongrid' && r.batteryCount > 0 ? `
-    <tr><td>${r.batteryCount}x ${r.selectedBattery} (${r.batteryTypeLabel})</td><td style="text-align:right">${formatARS(r.batteryCostARS)}</td></tr>
+    <tr><td>${r.batteryCount}x ${esc(r.selectedBattery)} (${esc(r.batteryTypeLabel)})</td><td style="text-align:right">${formatARS(r.batteryCostARS)}</td></tr>
     <tr><td>Autonomia</td><td style="text-align:right">${r.autonomyDays} dias / ${r.batteryKwh} kWh</td></tr>
   ` : '';
+
+  // Build 25-year table
+  let projectionRows = '';
+  if (r.projection && r.projection.years) {
+    r.projection.years.forEach(y => {
+      const highlight = y.inverterReplacement > 0 ? ' style="background:#fff3e0;"' : (y.year === r.projection.paybackYear ? ' style="background:#e8f5e9;"' : '');
+      projectionRows += `<tr${highlight}>
+        <td>${y.year}</td>
+        <td style="text-align:right">${(y.generation / 1000).toFixed(1)}</td>
+        <td style="text-align:right">${formatARS(y.benefit)}</td>
+        <td style="text-align:right">${y.inverterReplacement > 0 ? formatARS(y.inverterReplacement) : '-'}</td>
+        <td style="text-align:right">${formatARS(y.cumulative)}</td>
+      </tr>`;
+    });
+  }
+
+  const phone = cfg.whatsappNumber || '5491155881126';
 
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Presupuesto Solar - Navimaq</title>
 <style>
@@ -537,7 +637,8 @@ function exportPDF() {
   h1{color:#00875a;font-size:1.5rem;border-bottom:3px solid #00875a;padding-bottom:0.5rem;}
   h2{color:#333;font-size:1.1rem;margin-top:1.5rem;border-bottom:1px solid #ddd;padding-bottom:0.3rem;}
   table{width:100%;border-collapse:collapse;margin:0.5rem 0;}
-  td{padding:0.4rem 0.5rem;border-bottom:1px solid #eee;}
+  td,th{padding:0.35rem 0.5rem;border-bottom:1px solid #eee;font-size:0.85rem;}
+  th{background:#f5f5f5;font-weight:600;text-align:left;}
   .total td{font-weight:700;font-size:1.1rem;border-top:2px solid #00875a;border-bottom:none;}
   .highlight{background:#f0faf6;}
   .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;}
@@ -547,19 +648,20 @@ function exportPDF() {
   .savings-box div{flex:1;}
   .savings-box .val{font-size:1.3rem;font-weight:700;color:#00875a;}
   .footer{margin-top:2rem;padding-top:1rem;border-top:1px solid #ddd;font-size:0.8rem;color:#888;text-align:center;}
-  @media print{body{padding:1rem;}}
+  .whatsapp-link{display:inline-block;background:#25D366;color:white;padding:0.5rem 1.5rem;border-radius:8px;text-decoration:none;font-weight:600;margin-top:0.5rem;}
+  @media print{body{padding:1rem;} .no-print{display:none;}}
 </style></head><body>
 <div class="header">
   <h1>Presupuesto Solar — Navimaq</h1>
-  <div class="meta">Fecha: ${date}<br>Sistema: ${r.systemTypeLabel}<br>${r.province} (${r.hsp} HSP)</div>
+  <div class="meta">Fecha: ${date}<br>Sistema: ${esc(r.systemTypeLabel)}<br>${esc(r.province)} (${r.hsp} HSP)</div>
 </div>
 
 <h2>Sistema recomendado</h2>
 <table>
-  <tr class="highlight"><td>Paneles</td><td style="text-align:right"><strong>${r.numPanels}x ${r.selectedPanel} (${r.panelWatts}W)</strong></td></tr>
+  <tr class="highlight"><td>Paneles</td><td style="text-align:right"><strong>${r.numPanels}x ${esc(r.selectedPanel)} (${r.panelWatts}W)</strong></td></tr>
   <tr><td>Potencia total</td><td style="text-align:right">${formatNumber(r.systemKwp)} kWp</td></tr>
-  <tr><td>Superficie</td><td style="text-align:right">${formatNumber(r.areaM2)} m²</td></tr>
-  <tr><td>Inversor</td><td style="text-align:right">${r.selectedInverters.map(i => (i.qty > 1 ? i.qty + 'x ' : '') + i.name).join(', ') || 'Consultar'}</td></tr>
+  <tr><td>Superficie</td><td style="text-align:right">${formatNumber(r.areaM2)} m2</td></tr>
+  <tr><td>Inversor</td><td style="text-align:right">${r.selectedInverters.map(i => (i.qty > 1 ? i.qty + 'x ' : '') + esc(i.name)).join(', ') || 'Consultar'}</td></tr>
   ${batterySection}
   <tr><td>Cobertura</td><td style="text-align:right"><strong>${Math.round(r.coveragePercent)}%</strong> del consumo</td></tr>
 </table>
@@ -588,17 +690,26 @@ function exportPDF() {
   <div><div class="meta">ROI 25 años</div><div class="val">${Math.round(r.roi25years)}%</div></div>
 </div>
 
+<h2>Proyeccion a 25 años</h2>
+<p style="font-size:0.8rem;color:#666;margin-bottom:0.5rem;">Incluye degradacion de paneles (${((cfg.panelDegradation || 0.005) * 100).toFixed(1)}%/año), inflacion tarifaria (${Math.round((cfg.tariffInflation || 0.30) * 100)}%/año) y reemplazo de inversor en año ${cfg.inverterLifeYears || 12}.</p>
+<table>
+  <thead><tr><th>Año</th><th style="text-align:right">Gen. (MWh)</th><th style="text-align:right">Beneficio</th><th style="text-align:right">Reemplazo</th><th style="text-align:right">Acumulado</th></tr></thead>
+  <tbody>${projectionRows}</tbody>
+</table>
+
 <h2>Impacto ambiental</h2>
 <table>
   <tr><td>Generacion anual</td><td style="text-align:right">${formatNumber(r.annualGenerationKwh)} kWh/año</td></tr>
-  <tr><td>CO² evitado</td><td style="text-align:right">${formatNumber(r.annualCO2kg)} kg/año</td></tr>
+  <tr><td>CO2 evitado</td><td style="text-align:right">${formatNumber(r.annualCO2kg)} kg/año</td></tr>
   <tr><td>Arboles equivalentes</td><td style="text-align:right">${r.treesEquivalent} arboles</td></tr>
 </table>
 
 <div class="footer">
-  <p><strong>Navimaq Solar</strong> — navimaqsolar.com.ar</p>
+  <p><strong>Navimaq Solar</strong></p>
+  <a href="https://wa.me/${phone}" class="whatsapp-link">Consultar por WhatsApp</a>
+  <p style="margin-top:0.5rem;">navimaqsolar.com.ar</p>
   <p>Precios al tipo de cambio del dia. Valores estimativos sujetos a confirmacion.</p>
-  <p>Consumo mensual analizado: ${formatNumber(r.monthlyKwh)} kWh — Tarifa: ${r.tariffLabel}</p>
+  <p>Consumo mensual analizado: ${formatNumber(r.monthlyKwh)} kWh — Tarifa: ${esc(r.tariffLabel)}</p>
 </div>
 </body></html>`;
 

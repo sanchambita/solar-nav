@@ -3,8 +3,10 @@ const rateLimit = new Map();
 const RATE_LIMIT = 10; // max requests per IP per minute
 const RATE_WINDOW = 60000;
 
-const ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-const MAX_IMAGE_SIZE = 4 * 1024 * 1024; // 4MB base64 (Groq limit)
+const ALLOWED_IMAGE_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const ALLOWED_PDF_MIMES = ['application/pdf'];
+const ALLOWED_MIMES = [...ALLOWED_IMAGE_MIMES, ...ALLOWED_PDF_MIMES];
+const MAX_SIZE = 10 * 1024 * 1024; // 10MB base64
 
 const ALLOWED_FIELDS = [
   'proveedor', 'tarifa', 'tipo_tarifa', 'actividad', 'consumo_kwh',
@@ -14,7 +16,7 @@ const ALLOWED_FIELDS = [
   'periodo', 'numero_cuenta',
 ];
 
-const PROMPT = `Analiza esta factura de electricidad de Argentina. Busca estos datos exactos y devuelve SOLO un JSON sin markdown:
+const PROMPT = `Analiza esta factura de electricidad de Argentina. El documento puede tener 1 o mas paginas — revisa TODAS las paginas para extraer los datos. Busca estos datos exactos y devuelve SOLO un JSON sin markdown:
 
 {
   "proveedor": "EDENOR" o "EDESUR" o "EPEC" o el nombre que figure,
@@ -86,7 +88,6 @@ export default async function handler(req, res) {
     return res.status(429).json({ error: 'Demasiadas solicitudes. Espera un minuto.' });
   }
 
-  // Try Groq first, fallback to Gemini
   const groqKey = process.env.GROQ_API_KEY;
   const geminiKey = process.env.GEMINI_API_KEY;
   if (!groqKey && !geminiKey) return res.status(500).json({ error: 'AI not configured' });
@@ -95,17 +96,24 @@ export default async function handler(req, res) {
     const { image, mimeType } = req.body;
 
     if (!image || typeof image !== 'string') {
-      return res.status(400).json({ error: 'No image provided' });
+      return res.status(400).json({ error: 'No se envio imagen o documento' });
     }
-    if (image.length > MAX_IMAGE_SIZE) {
-      return res.status(413).json({ error: 'Imagen demasiado grande (max 4MB)' });
+    if (image.length > MAX_SIZE) {
+      return res.status(413).json({ error: 'Archivo demasiado grande (max 10MB)' });
+    }
+
+    const isPdf = ALLOWED_PDF_MIMES.includes(mimeType);
+    const isImage = ALLOWED_IMAGE_MIMES.includes(mimeType);
+
+    if (!isPdf && !isImage) {
+      return res.status(400).json({ error: 'Formato no soportado. Usa JPG, PNG o PDF.' });
     }
 
     const safeMime = ALLOWED_MIMES.includes(mimeType) ? mimeType : 'image/jpeg';
     let text = '';
 
-    // --- Try Groq (fast, free) ---
-    if (groqKey) {
+    // --- Try Groq first (fast, free) — solo para imágenes, no soporta PDF ---
+    if (groqKey && isImage) {
       try {
         const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
           method: 'POST',
@@ -134,7 +142,7 @@ export default async function handler(req, res) {
       } catch { /* fall through to Gemini */ }
     }
 
-    // --- Fallback: Gemini ---
+    // --- Fallback: Gemini (soporta PDF + imágenes multi-página) ---
     if (!text && geminiKey) {
       const geminiRes = await fetch(
         'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
@@ -160,8 +168,8 @@ export default async function handler(req, res) {
         text = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
       } else {
         const err = await geminiRes.json();
-        if (!groqKey) {
-          return res.status(geminiRes.status).json({ error: err.error?.message || 'AI error' });
+        if (!groqKey || isPdf) {
+          return res.status(geminiRes.status).json({ error: err.error?.message || 'Error al analizar con IA' });
         }
       }
     }

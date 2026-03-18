@@ -4,8 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SOLAR CALCULATOR — Calculadora Solar Argentina</title>
+  <meta name="description" content="Calcula cuanto podes ahorrar con energia solar. Presupuesto personalizado para Argentina con paneles, inversores y baterias.">
+  <meta property="og:title" content="Calculadora Solar Argentina — Navimaq">
+  <meta property="og:description" content="Calculador de ahorro solar para hogares y negocios en Argentina.">
   <link rel="stylesheet" href="/css/style.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#9728;</text></svg>">
+
 </head>
 <body>
   <header>
@@ -38,7 +42,7 @@
         </select>
       </div>
       <div id="hsp-info" style="font-size:0.85rem; color:var(--text-muted); display:none;">
-        Horas Solar Pico promedio: <strong id="hsp-value" style="color:var(--accent)"></strong> HSP/dia
+        <span data-tooltip="Horas Solar Pico: promedio de horas diarias con radiacion equivalente a 1000W/m2. Determina cuanta energia genera tu sistema.">Horas Solar Pico</span> promedio: <strong id="hsp-value" style="color:var(--accent)"></strong> <span data-tooltip="Horas Solar Pico por dia — la cantidad de horas equivalentes de sol pleno que recibe tu ubicacion.">HSP/dia</span>
       </div>
     </div>
 
@@ -49,7 +53,6 @@
         <h2>Consumo electrico</h2>
       </div>
 
-      <!-- Mode selector: two big buttons -->
       <div class="mode-selector" id="mode-selector">
         <button class="mode-btn active" id="mode-btn-auto" onclick="setEntryMode('auto')">
           <span class="mode-icon">&#128196;</span>
@@ -63,7 +66,7 @@
         </button>
       </div>
 
-      <!-- AUTO mode: Upload factura -->
+      <!-- AUTO mode -->
       <div id="entry-auto">
         <div class="upload-area" id="upload-area">
           <div class="upload-icon">&#128196;</div>
@@ -78,11 +81,10 @@
             <div id="bill-extracted"></div>
           </div>
         </div>
-        <!-- Hidden fields auto-filled by AI -->
         <input type="hidden" id="auto-kwh">
       </div>
 
-      <!-- MANUAL mode: Input fields -->
+      <!-- MANUAL mode -->
       <div id="entry-manual" style="display:none;">
         <div class="input-toggle">
           <button class="active" onclick="setInputMode('kwh')">kWh/mes</button>
@@ -91,7 +93,7 @@
 
         <div id="mode-kwh">
           <div class="form-group">
-            <label>Consumo mensual en kWh</label>
+            <label>Consumo mensual en <span data-tooltip="Kilovatios-hora: unidad de energia electrica. Lo encontras en tu factura de luz.">kWh</span></label>
             <input type="number" id="input-kwh" placeholder="Ej: 518" min="10" max="500000">
           </div>
         </div>
@@ -122,7 +124,7 @@
         <button class="mode-btn active" onclick="setSystemType('ongrid')" id="sys-ongrid">
           <span class="mode-icon">&#9889;</span>
           <span class="mode-title">On-Grid</span>
-          <span class="mode-desc">Conectado a red. Menor costo, mejor ROI. Ley 27.424</span>
+          <span class="mode-desc">Conectado a red. Menor costo, mejor <span data-tooltip="Retorno sobre la inversion: cuanto ganancia genera tu sistema respecto a lo que invertiste.">ROI</span>. <span data-tooltip="Ley 27.424 de Generacion Distribuida: permite inyectar excedente de energia solar a la red y recibir credito en tu factura.">Ley 27.424</span></span>
         </button>
         <button class="mode-btn" onclick="setSystemType('hybrid')" id="sys-hybrid">
           <span class="mode-icon">&#128267;</span>
@@ -136,7 +138,6 @@
         </button>
       </div>
 
-      <!-- Opciones batería (hybrid/offgrid) -->
       <div id="battery-options" style="display:none;">
         <div class="form-group">
           <label>Tipo de bateria</label>
@@ -170,6 +171,29 @@
           <h2>Tu sistema solar <span id="r-system-type" style="color:var(--accent);"></span></h2>
         </div>
 
+        <!-- Off-grid warning -->
+        <div id="r-offgrid-warning" class="offgrid-warning" style="display:none;"></div>
+
+        <!-- Hero strip: 4 metricas grandes -->
+        <div class="hero-metrics">
+          <div class="hero-metric">
+            <div class="hero-metric-value" id="r-power">-</div>
+            <div class="hero-metric-label"><span data-tooltip="Kilovatios pico: potencia maxima del sistema solar bajo condiciones ideales de radiacion.">kWp</span></div>
+          </div>
+          <div class="hero-metric">
+            <div class="hero-metric-value" id="r-save-month-hero">-</div>
+            <div class="hero-metric-label">Ahorro/mes</div>
+          </div>
+          <div class="hero-metric">
+            <div class="hero-metric-value" id="r-payback-hero">-</div>
+            <div class="hero-metric-label">Payback</div>
+          </div>
+          <div class="hero-metric">
+            <div class="hero-metric-value" id="r-coverage">-</div>
+            <div class="hero-metric-label">Cobertura</div>
+          </div>
+        </div>
+
         <!-- Panel adjuster -->
         <div class="panel-adjuster">
           <span>Paneles:</span>
@@ -177,26 +201,6 @@
           <span class="adj-value" id="r-panels">-</span>
           <button class="adj-btn" onclick="adjustPanels(1)">+</button>
           <span id="r-panel-rec" style="font-size:0.75rem; color:var(--text-muted); margin-left:0.5rem;"></span>
-        </div>
-
-        <!-- Key metrics -->
-        <div class="results-grid">
-          <div class="result-card highlight">
-            <div class="value" id="r-power">-</div>
-            <div class="label">Potencia kWp</div>
-          </div>
-          <div class="result-card">
-            <div class="value" id="r-area">-</div>
-            <div class="label">Superficie m²</div>
-          </div>
-          <div class="result-card gold">
-            <div class="value" id="r-coverage">-</div>
-            <div class="label">Cobertura</div>
-          </div>
-          <div class="result-card" id="r-battery-card" style="display:none;">
-            <div class="value" id="r-battery-kwh">-</div>
-            <div class="label">Bateria kWh</div>
-          </div>
         </div>
 
         <!-- Bill comparison before/after -->
@@ -222,42 +226,55 @@
           </div>
         </div>
 
-        <!-- Equipamiento recomendado -->
-        <div class="cost-breakdown" style="border:1px solid var(--accent); background:linear-gradient(135deg, var(--accent-glow), var(--bg-card));">
-          <h3 style="color:var(--accent);">Equipamiento recomendado</h3>
-          <div id="r-equipment-list"></div>
+        <!-- Grafico generacion mensual -->
+        <div class="chart-container">
+          <h3>Generacion mensual vs Consumo</h3>
+          <canvas id="chart-monthly"></canvas>
         </div>
 
-        <!-- Cost breakdown -->
-        <div class="cost-breakdown">
-          <h3>Desglose de costos</h3>
-          <div class="cost-row">
-            <span>Paneles (<span id="r-panel-detail"></span>)</span>
-            <span id="r-cost-panels">-</span>
+        <!-- Costos: donut + desglose -->
+        <div class="cost-section">
+          <div class="cost-donut-container">
+            <h3>Distribucion de costos</h3>
+            <canvas id="chart-costs"></canvas>
           </div>
-          <div class="cost-row">
-            <span>Inversor (<span id="r-inverter-detail"></span>)</span>
-            <span id="r-cost-inverter">-</span>
-          </div>
-          <div class="cost-row" id="r-battery-cost-row" style="display:none;">
-            <span>Baterias (<span id="r-battery-detail"></span>)</span>
-            <span id="r-cost-battery">-</span>
-          </div>
-          <div class="cost-row">
-            <span>Estructura de montaje</span>
-            <span id="r-cost-structure">-</span>
-          </div>
-          <div class="cost-row">
-            <span>Instalacion y mano de obra</span>
-            <span id="r-cost-install">-</span>
-          </div>
-          <div class="cost-row" style="font-weight:700; font-size:1.1rem;">
-            <span>INVERSION TOTAL</span>
-            <span id="r-cost-total">-</span>
+          <div class="cost-breakdown cost-detail-container">
+            <h3>Desglose de costos</h3>
+            <div class="cost-row">
+              <span>Paneles (<span id="r-panel-detail"></span>)</span>
+              <span id="r-cost-panels">-</span>
+            </div>
+            <div class="cost-row">
+              <span>Inversor (<span id="r-inverter-detail"></span>)</span>
+              <span id="r-cost-inverter">-</span>
+            </div>
+            <div class="cost-row" id="r-battery-cost-row" style="display:none;">
+              <span>Baterias (<span id="r-battery-detail"></span>)</span>
+              <span id="r-cost-battery">-</span>
+            </div>
+            <div class="cost-row">
+              <span>Estructura de montaje</span>
+              <span id="r-cost-structure">-</span>
+            </div>
+            <div class="cost-row">
+              <span>Instalacion y mano de obra</span>
+              <span id="r-cost-install">-</span>
+            </div>
+            <div class="cost-row" style="font-weight:700; font-size:1.1rem;">
+              <span>INVERSION TOTAL</span>
+              <span id="r-cost-total">-</span>
+            </div>
           </div>
         </div>
 
-        <!-- Savings -->
+        <!-- Grafico proyeccion 25 anos -->
+        <div class="chart-container">
+          <h3>Proyeccion a 25 años</h3>
+          <p class="chart-subtitle">Con degradacion de paneles (<span id="r-degradation">0.5</span>%/año), inflacion tarifaria (<span id="r-inflation">30</span>%/año) y reemplazo de inversor</p>
+          <canvas id="chart-projection"></canvas>
+        </div>
+
+        <!-- Savings summary -->
         <div class="results-grid">
           <div class="result-card green">
             <div class="value" id="r-save-month">-</div>
@@ -273,18 +290,28 @@
           </div>
           <div class="result-card highlight">
             <div class="value" id="r-roi">-</div>
-            <div class="label">ROI a 25 años</div>
+            <div class="label"><span data-tooltip="Retorno sobre la inversion a 25 años, considerando degradacion de paneles e inflacion tarifaria.">ROI</span> a 25 años</div>
           </div>
         </div>
 
-        <!-- Generation bar -->
-        <div style="margin:1rem 0;">
-          <div style="display:flex; justify-content:space-between; font-size:0.85rem; margin-bottom:0.3rem;">
-            <span>Generacion vs Consumo</span>
-            <span id="r-gen-label">-</span>
-          </div>
-          <div class="timeline-bar">
-            <div class="timeline-fill" id="r-gen-bar" style="width:0%"></div>
+        <!-- Equipamiento recomendado -->
+        <div class="cost-breakdown" style="border:1px solid var(--accent); background:linear-gradient(135deg, var(--accent-glow), var(--bg-card));">
+          <h3 style="color:var(--accent);">Equipamiento recomendado</h3>
+          <div id="r-equipment-list"></div>
+        </div>
+
+        <!-- Battery card -->
+        <div id="r-battery-card" style="display:none;" class="cost-breakdown" style="border:1px solid var(--gold);">
+          <h3 style="color:var(--gold);">Almacenamiento</h3>
+          <div class="results-grid" style="margin-bottom:0;">
+            <div class="result-card">
+              <div class="value" id="r-battery-kwh">-</div>
+              <div class="label">kWh requeridos</div>
+            </div>
+            <div class="result-card">
+              <div class="value" id="r-battery-count">-</div>
+              <div class="label">Baterias</div>
+            </div>
           </div>
         </div>
 
@@ -292,7 +319,7 @@
         <div class="results-grid" style="margin-top:1.5rem;">
           <div class="result-card">
             <div class="value" id="r-co2" style="color:var(--success);">-</div>
-            <div class="label">kg CO²/año evitados</div>
+            <div class="label">kg CO2/año evitados</div>
           </div>
           <div class="result-card">
             <div class="value" id="r-trees" style="color:var(--success);">-</div>
@@ -302,12 +329,22 @@
             <div class="value" id="r-gen-kwh">-</div>
             <div class="label">kWh/año generados</div>
           </div>
+          <div class="result-card">
+            <div class="value" id="r-area">-</div>
+            <div class="label">Superficie m2</div>
+          </div>
         </div>
 
-        <!-- Export PDF -->
-        <button class="btn btn-primary" onclick="exportPDF()" style="margin-top:1.5rem; width:100%;">
-          Descargar presupuesto PDF
-        </button>
+        <!-- CTAs -->
+        <div class="cta-buttons">
+          <button class="btn btn-whatsapp" onclick="sendWhatsApp()" id="btn-whatsapp">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+            Consultar por WhatsApp
+          </button>
+          <button class="btn btn-primary" onclick="exportPDF()" style="flex:1;">
+            Descargar presupuesto PDF
+          </button>
+        </div>
       </div>
     </div>
   </section>
@@ -315,8 +352,21 @@
   <!-- Products -->
   <section class="products-section" id="products">
     <h2>Catalogo de productos</h2>
+    <div class="product-search-bar">
+      <input type="text" id="product-search" placeholder="Buscar productos..." oninput="searchProducts(this.value)">
+      <select id="product-sort" onchange="sortProducts(this.value)">
+        <option value="default">Ordenar por defecto</option>
+        <option value="price-asc">Precio: menor a mayor</option>
+        <option value="price-desc">Precio: mayor a menor</option>
+      </select>
+    </div>
     <div class="product-grid" id="product-grid"></div>
   </section>
+
+  <!-- WhatsApp floating button -->
+  <a href="#" id="whatsapp-float" class="whatsapp-float" style="display:none;" onclick="sendWhatsApp(); return false;">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+  </a>
 
   <footer>
     <img src="/img/navimaq-logo.png" alt="Navimaq Solar" style="height:40px; margin-bottom:0.5rem; filter:brightness(0.9);">
@@ -325,8 +375,10 @@
     <p style="margin-top:0.3rem;"><a href="https://www.navimaqsolar.com.ar/" target="_blank" style="color:var(--accent);">navimaqsolar.com.ar</a></p>
   </footer>
 
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <script src="/js/data.js"></script>
   <script src="/js/calculator.js"></script>
+  <script src="/js/charts.js"></script>
   <script src="/js/app.js"></script>
 </body>
 </html>

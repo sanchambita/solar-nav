@@ -8,10 +8,17 @@ const CONFIG = {
   margin: 1.40,          // 40% ganancia y utilidad
   efficiency: 0.80,      // Factor eficiencia del sistema
   panelArea: 2.2,        // m² por panel promedio
-  installCostPercent: 0.20, // 20% costo instalación sobre equipamiento
+  installBaseUSD: 1500,       // USD fijo base por instalación
+  installPerPanelUSD: 100,     // USD adicional por panel
   structurePercent: 0.12,   // 12% estructura sobre costo paneles
   co2Factor: 0.5,        // kg CO2/kWh factor red argentina
   defaultPanelWp: 550,   // Watts pico panel por defecto
+  injectionPriceFactor: 0.50,  // Factor precio inyección vs consumo
+  panelDegradation: 0.005,     // 0.5%/año degradación paneles
+  tariffInflation: 0.30,       // 30% inflación tarifaria anual (configurable)
+  inverterLifeYears: 12,       // Vida útil inversor
+  whatsappNumber: '5491155881126',
+  installMultipliers: { ongrid: 1.0, hybrid: 1.35, offgrid: 1.50 },
 };
 
 // Horas Solar Pico (HSP) promedio anual por provincia
@@ -41,6 +48,9 @@ const PROVINCES = [
   { id: 'tierradelfuego', name: 'Tierra del Fuego', hsp: 3.2 },
   { id: 'tucuman', name: 'Tucumán', hsp: 5.2 },
 ];
+
+// Factores estacionales HSP (Ene→Dic). Multiplicadores sobre HSP anual.
+const HSP_MONTHLY_FACTORS = [1.25, 1.20, 1.10, 0.95, 0.80, 0.70, 0.65, 0.75, 0.90, 1.05, 1.15, 1.25];
 
 // Tarifas eléctricas Argentina (ARS/kWh efectivo incluyendo impuestos proporcionales)
 // Basado en factura real EDENOR Enero 2026: 518kWh = $72,300 → ~$139.58/kWh efectivo
@@ -123,23 +133,23 @@ const DEFAULT_PRODUCTS = [
   { id: 5855, category: 'panel', name: 'Panel Solar 280W policristalino Nuuko NKP280-60M2', description: 'Policristalino 280Wp. 60 celdas.', priceUSD: 73, flexPriceUSD: 59.86, iva: 0.105, watts: 280, brand: 'Nuuko', cashDiscount: 0.15 },
 
   // === BATERIAS (IVA 21%) ===
-  { id: 5685, category: 'bateria', name: 'Batería Litio Monobloque RT12100 12V 100Ah Pylontech', description: 'LiFePO4 12V 100Ah 1.28kWh. BMS integrado.', priceUSD: 488, flexPriceUSD: 400.20, iva: 0.21, watts: null, brand: 'Pylontech', cashDiscount: 0.15 },
-  { id: 6025, category: 'bateria', name: 'Batería Litio Monobloque RV12200 12.8V 200Ah Pylontech', description: 'LiFePO4 12.8V 200Ah 2.56kWh. BMS integrado.', priceUSD: 695, flexPriceUSD: 569.90, iva: 0.21, watts: null, brand: 'Pylontech', cashDiscount: 0.15 },
-  { id: 6019, category: 'bateria', name: 'Pylontech Batería Litio UF5000 51.2V 100Ah c/kit cables', description: 'LiFePO4 51.2V 100Ah 5.12kWh. Rack mount. Kit cables incluido.', priceUSD: 1125, flexPriceUSD: 922.50, iva: 0.21, watts: null, brand: 'Pylontech', cashDiscount: 0.15 },
+  { id: 5685, category: 'bateria', name: 'Batería Litio Monobloque RT12100 12V 100Ah Pylontech', description: 'LiFePO4 12V 100Ah 1.28kWh. BMS integrado.', priceUSD: 488, flexPriceUSD: 400.20, iva: 0.21, watts: null, capacityKwh: 1.28, brand: 'Pylontech', cashDiscount: 0.15 },
+  { id: 6025, category: 'bateria', name: 'Batería Litio Monobloque RV12200 12.8V 200Ah Pylontech', description: 'LiFePO4 12.8V 200Ah 2.56kWh. BMS integrado.', priceUSD: 695, flexPriceUSD: 569.90, iva: 0.21, watts: null, capacityKwh: 2.56, brand: 'Pylontech', cashDiscount: 0.15 },
+  { id: 6019, category: 'bateria', name: 'Pylontech Batería Litio UF5000 51.2V 100Ah c/kit cables', description: 'LiFePO4 51.2V 100Ah 5.12kWh. Rack mount. Kit cables incluido.', priceUSD: 1125, flexPriceUSD: 922.50, iva: 0.21, watts: null, capacityKwh: 5.12, brand: 'Pylontech', cashDiscount: 0.15 },
   { id: 6020, category: 'bateria', name: 'Pylontech kit brackets para UF5000', description: 'Kit brackets montaje para batería UF5000.', priceUSD: 62, flexPriceUSD: null, iva: 0.21, watts: null, brand: 'Pylontech', cashDiscount: 0.15 },
   { id: 5219, category: 'bateria', name: 'KIT accesorios batería Growatt HOPE 4.8L-C1', description: 'Kit cables y accesorios para batería HOPE 4.8L-C1.', priceUSD: 58, flexPriceUSD: 47.60, iva: 0.21, watts: null, brand: 'Growatt', cashDiscount: 0.15 },
   { id: 6111, category: 'bateria', name: 'KIT accesorios batería Growatt HOPE 5.0L-B1', description: 'Kit cables y accesorios para batería HOPE 5.0L-B1.', priceUSD: 45, flexPriceUSD: 36.90, iva: 0.21, watts: null, brand: 'Growatt', cashDiscount: 0.15 },
   { id: 5862, category: 'bateria', name: 'KIT accesorios batería Growatt HOPE 5.5L-A1', description: 'Kit cables y accesorios para batería HOPE 5.5L-A1.', priceUSD: 60, flexPriceUSD: 49.20, iva: 0.21, watts: null, brand: 'Growatt', cashDiscount: 0.15 },
-  { id: 5494, category: 'bateria', name: 'Batería Litio GROWATT AXE5.0L-C1 51V 100Ah 5kWh', description: 'LiFePO4 51V 100Ah 5kWh. Alta tensión, rack mount.', priceUSD: 1580, flexPriceUSD: 1295.60, iva: 0.21, watts: null, brand: 'Growatt', cashDiscount: 0.15 },
+  { id: 5494, category: 'bateria', name: 'Batería Litio GROWATT AXE5.0L-C1 51V 100Ah 5kWh', description: 'LiFePO4 51V 100Ah 5kWh. Alta tensión, rack mount.', priceUSD: 1580, flexPriceUSD: 1295.60, iva: 0.21, watts: null, capacityKwh: 5.0, brand: 'Growatt', cashDiscount: 0.15 },
   { id: 5495, category: 'bateria', name: 'AXE5.0L-C1 Cable para banco baterías', description: 'Cable conexión para banco baterías AXE5.0L-C1.', priceUSD: 120, flexPriceUSD: 98.40, iva: 0.21, watts: null, brand: 'Growatt', cashDiscount: 0.15 },
   { id: 5496, category: 'bateria', name: 'AXE5.0L-C1 Base para banco baterías', description: 'Base soporte para banco baterías AXE5.0L-C1.', priceUSD: 37, flexPriceUSD: 30.30, iva: 0.21, watts: null, brand: 'Growatt', cashDiscount: 0.15 },
-  { id: 5895, category: 'bateria', name: 'Batería Litio XLYTE 48V 5.12kWh', description: 'LiFePO4 48V 5.12kWh. BMS integrado.', priceUSD: 2595, flexPriceUSD: null, iva: 0.21, watts: null, brand: 'XLYTE', cashDiscount: 0.15 },
+  { id: 5895, category: 'bateria', name: 'Batería Litio XLYTE 48V 5.12kWh', description: 'LiFePO4 48V 5.12kWh. BMS integrado.', priceUSD: 2595, flexPriceUSD: null, iva: 0.21, watts: null, capacityKwh: 5.12, brand: 'XLYTE', cashDiscount: 0.15 },
   { id: 5037, category: 'bateria', name: 'Equilibrador de Baterías EQUIBATT 12+12V 1A', description: 'Equilibrador activo para baterías 12+12V. 1A.', priceUSD: 121.24, flexPriceUSD: null, iva: 0.21, watts: null, brand: 'EQUIBATT', cashDiscount: 0.15 },
-  { id: 4226, category: 'bateria', name: 'Batería DC12-225 12V 225Ah RITAR AGM', description: 'AGM Deep Cycle 12V 225Ah. Ciclo profundo.', priceUSD: 536, flexPriceUSD: null, iva: 0.21, watts: null, brand: 'Ritar', cashDiscount: 0 },
+  { id: 4226, category: 'bateria', name: 'Batería DC12-225 12V 225Ah RITAR AGM', description: 'AGM Deep Cycle 12V 225Ah. Ciclo profundo.', priceUSD: 536, flexPriceUSD: null, iva: 0.21, watts: null, capacityKwh: 2.7, brand: 'Ritar', cashDiscount: 0 },
 
   // === BANCOS BATERIAS ALTA TENSION (IVA 21%) ===
-  { id: 9201, category: 'bateria', name: 'Banco baterías alta tensión 20kWh Blunery', description: 'Banco baterías LiFePO4 alta tensión 20kWh Blunery.', priceUSD: 10528, flexPriceUSD: 8632.96, iva: 0.21, watts: null, brand: 'Blunery', cashDiscount: 0.15 },
-  { id: 9202, category: 'bateria', name: 'Banco baterías alta tensión 35kWh Blunery', description: 'Banco baterías LiFePO4 alta tensión 35kWh Blunery.', priceUSD: 17143, flexPriceUSD: 14057.26, iva: 0.21, watts: null, brand: 'Blunery', cashDiscount: 0.15 },
+  { id: 9201, category: 'bateria', name: 'Banco baterías alta tensión 20kWh Blunery', description: 'Banco baterías LiFePO4 alta tensión 20kWh Blunery.', priceUSD: 10528, flexPriceUSD: 8632.96, iva: 0.21, watts: null, capacityKwh: 20.0, brand: 'Blunery', cashDiscount: 0.15 },
+  { id: 9202, category: 'bateria', name: 'Banco baterías alta tensión 35kWh Blunery', description: 'Banco baterías LiFePO4 alta tensión 35kWh Blunery.', priceUSD: 17143, flexPriceUSD: 14057.26, iva: 0.21, watts: null, capacityKwh: 35.0, brand: 'Blunery', cashDiscount: 0.15 },
 
   // === INVERSORES ON-GRID (IVA 21%) ===
   { id: 1176, category: 'inversor', name: 'Inversor Goodwe GW1500-NS (WiFi)', description: 'On Grid 1500W monofásico. WiFi incorporado.', priceUSD: 263, flexPriceUSD: null, iva: 0.21, watts: 1500, brand: 'Goodwe', cashDiscount: 0.15 },

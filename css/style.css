@@ -15,6 +15,7 @@
   --danger: #ff4757;
   --success: #2ed573;
   --warning: #ffa502;
+  --whatsapp: #25D366;
   --radius: 12px;
   --shadow: 0 4px 24px rgba(0,0,0,0.4);
 }
@@ -240,6 +241,40 @@ select:focus, input:focus {
   font-size: 0.85rem;
 }
 
+/* ---------- WhatsApp Button ---------- */
+.btn-whatsapp {
+  background: var(--whatsapp);
+  color: white;
+  flex: 1;
+}
+
+.btn-whatsapp:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(37, 211, 102, 0.3);
+}
+
+.whatsapp-float {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--whatsapp);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(37, 211, 102, 0.4);
+  z-index: 99;
+  transition: transform 0.2s;
+  text-decoration: none;
+}
+
+.whatsapp-float:hover {
+  transform: scale(1.1);
+}
+
 /* ---------- Entry Mode Selector ---------- */
 .mode-selector {
   display: grid;
@@ -363,8 +398,8 @@ select:focus, input:focus {
 }
 
 .adj-btn {
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   border: 2px solid var(--accent);
   background: transparent;
@@ -389,6 +424,48 @@ select:focus, input:focus {
   color: var(--accent);
   min-width: 50px;
   text-align: center;
+}
+
+/* ---------- Hero Metrics Strip ---------- */
+.hero-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  padding: 1.25rem;
+  background: linear-gradient(135deg, var(--accent-glow), rgba(255, 215, 0, 0.08));
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+}
+
+.hero-metric {
+  text-align: center;
+}
+
+.hero-metric-value {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--accent);
+  line-height: 1.2;
+}
+
+.hero-metric-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 0.2rem;
+}
+
+/* ---------- Off-grid Warning ---------- */
+.offgrid-warning {
+  background: rgba(255, 165, 2, 0.15);
+  border: 1px solid var(--warning);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+  color: var(--warning);
 }
 
 /* ---------- Bill Comparison ---------- */
@@ -462,6 +539,64 @@ select:focus, input:focus {
   color: var(--text-muted);
 }
 
+/* ---------- Charts ---------- */
+.chart-container {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.chart-container h3 {
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.chart-subtitle {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+}
+
+.chart-container canvas {
+  width: 100% !important;
+}
+
+/* Cost section: donut + detail side by side */
+.cost-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.cost-donut-container {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.cost-donut-container h3 {
+  font-size: 1rem;
+  margin-bottom: 1rem;
+}
+
+.cost-detail-container {
+  display: flex;
+  flex-direction: column;
+}
+
+/* CTA buttons */
+.cta-buttons {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
 /* ---------- Sliders ---------- */
 input[type="range"] {
   -webkit-appearance: none;
@@ -480,6 +615,130 @@ input[type="range"]::-webkit-slider-thumb {
   border-radius: 50%;
   background: var(--accent);
   cursor: pointer;
+}
+
+/* ---------- Tooltips (CSS-only) ---------- */
+[data-tooltip] {
+  position: relative;
+  border-bottom: 1px dotted var(--accent);
+  cursor: help;
+}
+
+[data-tooltip]:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 120%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-card);
+  color: var(--text);
+  border: 1px solid var(--accent);
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  white-space: normal;
+  width: max-content;
+  max-width: 250px;
+  z-index: 50;
+  line-height: 1.4;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  pointer-events: none;
+}
+
+[data-tooltip]:hover::before {
+  content: '';
+  position: absolute;
+  bottom: 110%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: var(--accent);
+  z-index: 50;
+}
+
+/* ---------- Product Search ---------- */
+.product-search-bar {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.product-search-bar input {
+  flex: 2;
+}
+
+.product-search-bar select {
+  flex: 1;
+}
+
+/* ---------- Product Cards ---------- */
+.product-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+}
+
+.product-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+
+.product-card .category-tag {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--accent);
+  background: var(--accent-glow);
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  display: inline-block;
+  margin-bottom: 0.5rem;
+  align-self: flex-start;
+}
+
+.product-card h3 {
+  font-size: 0.95rem;
+  margin-bottom: 0.4rem;
+}
+
+.product-card .desc {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
+  flex: 1;
+}
+
+.product-card .price {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--gold);
+}
+
+.product-card .price-usd {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.product-card .btn-consult {
+  margin-top: 0.75rem;
+  padding: 0.5rem;
+  font-size: 0.8rem;
+  background: var(--whatsapp);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.product-card .btn-consult:hover {
+  filter: brightness(1.1);
 }
 
 @media (max-width: 500px) {
@@ -617,54 +876,6 @@ input[type="range"]::-webkit-slider-thumb {
   gap: 1rem;
 }
 
-.product-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 1.25rem;
-  transition: all 0.2s;
-}
-
-.product-card:hover {
-  border-color: var(--accent);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow);
-}
-
-.product-card .category-tag {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--accent);
-  background: var(--accent-glow);
-  padding: 0.2rem 0.6rem;
-  border-radius: 4px;
-  display: inline-block;
-  margin-bottom: 0.5rem;
-}
-
-.product-card h3 {
-  font-size: 0.95rem;
-  margin-bottom: 0.4rem;
-}
-
-.product-card .desc {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  margin-bottom: 0.75rem;
-}
-
-.product-card .price {
-  font-size: 1.15rem;
-  font-weight: 700;
-  color: var(--gold);
-}
-
-.product-card .price-usd {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-}
-
 /* ---------- Admin ---------- */
 .admin-container {
   max-width: 800px;
@@ -726,7 +937,23 @@ footer {
   border-top: 1px solid var(--border);
 }
 
-/* ---------- Responsive ---------- */
+/* ---------- Responsive: Tablet (768px) ---------- */
+@media (max-width: 768px) {
+  .hero-metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .cost-section {
+    grid-template-columns: 1fr;
+  }
+  .cta-buttons {
+    flex-direction: column;
+  }
+  .product-search-bar {
+    flex-direction: column;
+  }
+}
+
+/* ---------- Responsive: Mobile (640px) ---------- */
 @media (max-width: 640px) {
   .hero h1 { font-size: 1.8rem; }
   .hero p { font-size: 0.95rem; }
@@ -737,4 +964,21 @@ footer {
   .input-row { grid-template-columns: 1fr; }
   .results-grid { grid-template-columns: repeat(2, 1fr); }
   .product-grid { grid-template-columns: 1fr; }
+  .hero-metrics {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+  }
+  .hero-metric-value {
+    font-size: 1.3rem;
+  }
+  .whatsapp-float {
+    bottom: 16px;
+    right: 16px;
+    width: 50px;
+    height: 50px;
+  }
+  .adj-btn {
+    width: 44px;
+    height: 44px;
+  }
 }

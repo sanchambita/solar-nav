@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SOLAR NAV — Admin</title>
+  <title>SOLAR CALCULATOR — Admin</title>
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
   <header>
-    <div class="logo">SOLAR <span>NAV</span> &mdash; Admin</div>
+    <div class="logo">SOLAR <span>CALCULATOR</span> &mdash; Admin</div>
     <nav>
       <a href="/">Calculadora</a>
     </nav>
@@ -47,13 +47,39 @@
           <input type="number" id="cfg-efficiency" step="1">
         </div>
         <div class="form-group">
-          <label>Costo instalacion (%)</label>
-          <input type="number" id="cfg-install" step="1">
+          <label>Instalacion base (USD)</label>
+          <input type="number" id="cfg-install-base" step="10">
         </div>
       </div>
-      <div class="form-group">
-        <label>IA Facturas</label>
-        <input type="text" id="cfg-gemini" value="Gemini Flash (server-side)" disabled style="opacity:0.6;">
+      <div class="input-row">
+        <div class="form-group">
+          <label>Instalacion por panel (USD)</label>
+          <input type="number" id="cfg-install-panel" step="10">
+        </div>
+        <div class="form-group">
+          <label>Inflacion tarifaria anual (%)</label>
+          <input type="number" id="cfg-tariff-inflation" step="1" min="0" max="100">
+        </div>
+      </div>
+      <div class="input-row">
+        <div class="form-group">
+          <label>Factor precio inyeccion (%)</label>
+          <input type="number" id="cfg-injection-factor" step="1" min="0" max="100">
+        </div>
+        <div class="form-group">
+          <label>Degradacion paneles (%/año)</label>
+          <input type="number" id="cfg-degradation" step="0.1" min="0" max="5">
+        </div>
+      </div>
+      <div class="input-row">
+        <div class="form-group">
+          <label>WhatsApp Navimaq</label>
+          <input type="text" id="cfg-whatsapp" placeholder="5491155881126">
+        </div>
+        <div class="form-group">
+          <label>IA Facturas</label>
+          <input type="text" id="cfg-gemini" value="Gemini Flash (server-side)" disabled style="opacity:0.6;">
+        </div>
       </div>
       <button class="btn btn-primary btn-sm" onclick="saveAdminConfig()">Guardar configuracion</button>
     </div>
@@ -167,8 +193,12 @@
       document.getElementById('cfg-dollar').value = cfg.dollarRate;
       document.getElementById('cfg-margin').value = Math.round((cfg.margin - 1) * 100);
       document.getElementById('cfg-efficiency').value = Math.round(cfg.efficiency * 100);
-      document.getElementById('cfg-install').value = Math.round(cfg.installCostPercent * 100);
-      // AI config is server-side only
+      document.getElementById('cfg-install-base').value = cfg.installBaseUSD;
+      document.getElementById('cfg-install-panel').value = cfg.installPerPanelUSD;
+      document.getElementById('cfg-tariff-inflation').value = Math.round((cfg.tariffInflation || 0.30) * 100);
+      document.getElementById('cfg-injection-factor').value = Math.round((cfg.injectionPriceFactor || 0.50) * 100);
+      document.getElementById('cfg-degradation').value = ((cfg.panelDegradation || 0.005) * 100).toFixed(1);
+      document.getElementById('cfg-whatsapp').value = cfg.whatsappNumber || '5491155881126';
       renderProductTable();
     }
 
@@ -177,7 +207,12 @@
       cfg.dollarRate = parseFloat(document.getElementById('cfg-dollar').value);
       cfg.margin = 1 + parseFloat(document.getElementById('cfg-margin').value) / 100;
       cfg.efficiency = parseFloat(document.getElementById('cfg-efficiency').value) / 100;
-      cfg.installCostPercent = parseFloat(document.getElementById('cfg-install').value) / 100;
+      cfg.installBaseUSD = parseFloat(document.getElementById('cfg-install-base').value);
+      cfg.installPerPanelUSD = parseFloat(document.getElementById('cfg-install-panel').value);
+      cfg.tariffInflation = parseFloat(document.getElementById('cfg-tariff-inflation').value) / 100;
+      cfg.injectionPriceFactor = parseFloat(document.getElementById('cfg-injection-factor').value) / 100;
+      cfg.panelDegradation = parseFloat(document.getElementById('cfg-degradation').value) / 100;
+      cfg.whatsappNumber = document.getElementById('cfg-whatsapp').value.trim();
       saveConfig(cfg);
 
       alert('Configuracion guardada');

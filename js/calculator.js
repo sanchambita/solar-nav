@@ -6,7 +6,7 @@
 // Constantes de sistema
 const SYSTEM_DEFAULTS = {
   ongrid:  { efficiency: 0.80, winterFactor: 1.0, panelOversize: 1.0, label: 'On-Grid' },
-  hybrid:  { efficiency: 0.82, winterFactor: 1.0, panelOversize: 1.0, label: 'Híbrido' },
+  hybrid:  { efficiency: 0.78, winterFactor: 1.0, panelOversize: 1.0, label: 'Híbrido' },
   offgrid: { efficiency: 0.75, winterFactor: 0.55, panelOversize: 1.30, label: 'Off-Grid' },
 };
 
@@ -47,13 +47,29 @@ function calculateSolar(params) {
   const effectiveHsp = systemType === 'offgrid' ? hsp * sys.winterFactor : hsp;
 
   // 4. Dimensionamiento paneles
-  const systemKwpNeeded = (dailyKwh * sys.panelOversize) / (effectiveHsp * sys.efficiency);
+  let systemKwpNeeded = (dailyKwh * sys.panelOversize) / (effectiveHsp * sys.efficiency);
 
   const panels = products.filter(p => p.category === 'panel').sort((a, b) => b.watts - a.watts);
   const selectedPanel = panels[0] || { watts: cfg.defaultPanelWp, priceUSD: 125, iva: 0.105, name: 'Panel 550W' };
   const panelWp = selectedPanel.watts / 1000;
 
-  const recommendedPanels = Math.ceil(systemKwpNeeded / panelWp);
+  let recommendedPanels = Math.ceil(systemKwpNeeded / panelWp);
+
+  // Bug 3 fix: Off-grid debe cubrir 100% incluso en invierno
+  let offgridWarning = null;
+  if (systemType === 'offgrid') {
+    const coverCheck = (recommendedPanels * panelWp * hsp * 365 * sys.efficiency / 12) / monthlyKwh * 100;
+    if (coverCheck < 100) {
+      // Forzar paneles hasta 100% cobertura anual
+      const neededKwp = monthlyKwh / (hsp * 365 / 12 * sys.efficiency);
+      const forcedPanels = Math.ceil(neededKwp / panelWp);
+      if (forcedPanels > recommendedPanels) {
+        recommendedPanels = forcedPanels;
+        offgridWarning = 'Se agregaron paneles extra para garantizar 100% cobertura off-grid';
+      }
+    }
+  }
+
   const numPanels = numPanelsOverride || recommendedPanels;
   const actualSystemKwp = numPanels * panelWp;
 
@@ -61,7 +77,6 @@ function calculateSolar(params) {
   const inverterCategory = systemType === 'offgrid' ? 'inversor-offgrid'
     : systemType === 'hybrid' ? 'inversor-hibrido' : 'inversor';
 
-  // Buscar en la categoría preferida, fallback a todas
   let inverters = products.filter(p => p.category === inverterCategory && p.watts).sort((a, b) => a.watts - b.watts);
   if (inverters.length === 0) {
     inverters = products.filter(p => (p.category === 'inversor' || p.category === 'inversor-offgrid' || p.category === 'inversor-hibrido') && p.watts).sort((a, b) => a.watts - b.watts);
@@ -79,7 +94,7 @@ function calculateSolar(params) {
     selectedInverters = [{ product: largest, qty }];
   }
 
-  // 6. Cálculo de baterías (solo hybrid/offgrid)
+  // 6. Cálculo de baterías (solo hybrid/offgrid) — Bug 1+2 fix
   let batteryKwh = 0;
   let batteryCount = 0;
   let selectedBattery = null;
@@ -87,19 +102,28 @@ function calculateSolar(params) {
 
   if (systemType !== 'ongrid') {
     const dailyLoad = systemType === 'hybrid' ? dailyKwh * (essentialLoadPct / 100) : dailyKwh;
-    batteryKwh = (dailyLoad * autonomyDays) / bat.dod / bat.efficiency;
+    // Bug 2 fix: NO dividir por bat.efficiency (ya incluido en sys.efficiency)
+    batteryKwh = (dailyLoad * autonomyDays) / bat.dod;
 
-    // Buscar baterías en catálogo
-    const batteries = products.filter(p => p.category === 'bateria' && p.watts).sort((a, b) => b.watts - a.watts);
+    // Bug 1 fix: Filtrar por capacityKwh en vez de watts
+    // Seleccionar la batería que minimiza el costo total para la capacidad requerida
+    const batteries = products.filter(p => p.category === 'bateria' && p.capacityKwh);
     if (batteries.length > 0) {
-      selectedBattery = batteries[0];
-      const batteryCapKwh = selectedBattery.watts / 1000;
-      batteryCount = Math.ceil(batteryKwh / batteryCapKwh);
-      batteryCostARS = batteryCount * calcFinalPriceARS(selectedBattery);
+      let bestCost = Infinity;
+      for (const bat of batteries) {
+        const count = Math.ceil(batteryKwh / bat.capacityKwh);
+        const cost = count * calcFinalPriceARS(bat);
+        if (cost < bestCost) {
+          bestCost = cost;
+          selectedBattery = bat;
+          batteryCount = count;
+          batteryCostARS = cost;
+        }
+      }
     }
   }
 
-  // 7. Costos
+  // 7. Costos — Bug 8 fix: instalación varía por tipo de sistema
   const panelCostARS = numPanels * calcFinalPriceARS(selectedPanel);
 
   let inverterCostARS = 0;
@@ -109,24 +133,29 @@ function calculateSolar(params) {
 
   const structureCostARS = panelCostARS * cfg.structurePercent;
   const equipmentCostARS = panelCostARS + inverterCostARS + structureCostARS + batteryCostARS;
-  const installCostARS = equipmentCostARS * cfg.installCostPercent;
+  const installMultiplier = (cfg.installMultipliers && cfg.installMultipliers[systemType]) || 1.0;
+  const installCostARS = (cfg.installBaseUSD + numPanels * cfg.installPerPanelUSD) * cfg.dollarRate * installMultiplier;
   const totalCostARS = equipmentCostARS + installCostARS;
 
   // 8. Generación y ahorro
   const annualGenerationKwh = actualSystemKwp * hsp * 365 * sys.efficiency;
   const monthlyGenerationKwh = annualGenerationKwh / 12;
 
+  // Generación mensual estacional
+  const monthlyGeneration = calculateMonthlyGeneration(actualSystemKwp, hsp, sys.efficiency);
+
   const effectiveMonthlyKwh = Math.min(monthlyGenerationKwh, monthlyKwh);
   const monthlySavingsARS = effectiveMonthlyKwh * pricePerKwh;
   const annualSavingsARS = monthlySavingsARS * 12;
 
-  // Excedente inyectado (Ley 27.424) — solo on-grid/hybrid
+  // Bug 9 fix: usar CONFIG.injectionPriceFactor
+  const injectionFactor = cfg.injectionPriceFactor || 0.50;
   let excessMonthlyKwh = 0;
   let monthlyInjectionARS = 0;
   let annualInjectionARS = 0;
   if (systemType !== 'offgrid') {
     excessMonthlyKwh = Math.max(0, monthlyGenerationKwh - monthlyKwh);
-    const injectionPriceKwh = pricePerKwh * 0.5;
+    const injectionPriceKwh = pricePerKwh * injectionFactor;
     monthlyInjectionARS = excessMonthlyKwh * injectionPriceKwh;
     annualInjectionARS = monthlyInjectionARS * 12;
   }
@@ -138,9 +167,15 @@ function calculateSolar(params) {
   const monthlyBillAfter = Math.max(0, (monthlyKwh - effectiveMonthlyKwh) * pricePerKwh);
   const billReductionPct = monthlyBillBefore > 0 ? ((monthlyBillBefore - monthlyBillAfter) / monthlyBillBefore) * 100 : 0;
 
-  // 10. ROI
-  const paybackYears = totalAnnualBenefitARS > 0 ? totalCostARS / totalAnnualBenefitARS : 99;
-  const roi25years = totalCostARS > 0 ? ((totalAnnualBenefitARS * 25) - totalCostARS) / totalCostARS * 100 : 0;
+  // 10. ROI — Bug 5+6+7: proyección 25 años con degradación, inflación, reemplazo inversor
+  const projection = generate25YearProjection({
+    totalCostARS, totalAnnualBenefitARS, inverterCostARS,
+    annualGenerationKwh, pricePerKwh, injectionFactor,
+    monthlyKwh, systemType,
+  }, cfg);
+
+  const paybackYears = projection.paybackYear || 99;
+  const roi25years = totalCostARS > 0 ? (projection.cumulativeCashflow[24] / totalCostARS) * 100 : 0;
 
   // 11. Ambiental
   const annualCO2kg = annualGenerationKwh * cfg.co2Factor;
@@ -148,6 +183,9 @@ function calculateSolar(params) {
 
   // 12. Superficie
   const areaM2 = numPanels * cfg.panelArea;
+
+  // Cobertura
+  const coveragePercent = Math.min(100, (monthlyGenerationKwh / monthlyKwh) * 100);
 
   return {
     // Input echo
@@ -169,7 +207,7 @@ function calculateSolar(params) {
     batteryKwh: Math.round(batteryKwh * 10) / 10,
     batteryCount,
     selectedBattery: selectedBattery ? selectedBattery.name : null,
-    batteryCapKwh: selectedBattery ? selectedBattery.watts / 1000 : 0,
+    batteryCapKwh: selectedBattery ? selectedBattery.capacityKwh : 0,
     batteryCostARS,
     batteryType, batteryTypeLabel: bat.label,
     autonomyDays, essentialLoadPct,
@@ -180,7 +218,8 @@ function calculateSolar(params) {
 
     // Generation & Savings
     annualGenerationKwh, monthlyGenerationKwh,
-    coveragePercent: Math.min(100, (monthlyGenerationKwh / monthlyKwh) * 100),
+    monthlyGeneration,
+    coveragePercent,
     monthlySavingsARS, annualSavingsARS,
     excessMonthlyKwh, monthlyInjectionARS, annualInjectionARS,
     totalAnnualBenefitARS,
@@ -190,17 +229,109 @@ function calculateSolar(params) {
 
     // ROI
     paybackYears, roi25years,
+    projection,
 
     // Environmental
     annualCO2kg, treesEquivalent,
+
+    // Warnings
+    offgridWarning,
   };
 }
 
+// Generación mensual estacional (12 meses)
+function calculateMonthlyGeneration(systemKwp, hsp, efficiency) {
+  const factors = HSP_MONTHLY_FACTORS;
+  const MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  const MONTH_NAMES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+  return factors.map((f, i) => ({
+    month: MONTH_NAMES[i],
+    kwh: Math.round(systemKwp * hsp * f * MONTH_DAYS[i] * efficiency),
+    factor: f,
+  }));
+}
+
+// Proyección 25 años con degradación, inflación tarifaria, reemplazo inversor
+function generate25YearProjection(data, cfg) {
+  const {
+    totalCostARS, totalAnnualBenefitARS, inverterCostARS,
+    annualGenerationKwh, pricePerKwh, injectionFactor,
+    monthlyKwh, systemType,
+  } = data;
+
+  const degradation = cfg.panelDegradation || 0.005;
+  const inflation = cfg.tariffInflation || 0.30;
+  const inverterLife = cfg.inverterLifeYears || 12;
+
+  const years = [];
+  const cumulativeCashflow = [];
+  let cumulative = -totalCostARS;
+  let paybackYear = null;
+
+  for (let y = 1; y <= 25; y++) {
+    // Generación con degradación
+    const genFactor = Math.pow(1 - degradation, y);
+    const yearGenKwh = annualGenerationKwh * genFactor;
+
+    // Precio kWh con inflación
+    const yearPriceKwh = pricePerKwh * Math.pow(1 + inflation, y);
+
+    // Ahorro: lo que no pagas de la red
+    const yearEffectiveKwh = Math.min(yearGenKwh / 12, monthlyKwh) * 12;
+    const yearSavings = yearEffectiveKwh * yearPriceKwh;
+
+    // Inyección excedente
+    let yearInjection = 0;
+    if (systemType !== 'offgrid') {
+      const yearExcess = Math.max(0, yearGenKwh - monthlyKwh * 12);
+      yearInjection = yearExcess * yearPriceKwh * injectionFactor;
+    }
+
+    const yearBenefit = yearSavings + yearInjection;
+
+    // Reemplazo inversor
+    const inverterReplacement = (y === inverterLife) ? inverterCostARS * Math.pow(1 + inflation, y) * 0.5 : 0;
+
+    const yearNet = yearBenefit - inverterReplacement;
+    cumulative += yearNet;
+
+    if (paybackYear === null && cumulative >= 0) {
+      paybackYear = y;
+    }
+
+    years.push({
+      year: y,
+      generation: Math.round(yearGenKwh),
+      savings: Math.round(yearSavings),
+      injection: Math.round(yearInjection),
+      benefit: Math.round(yearBenefit),
+      inverterReplacement: Math.round(inverterReplacement),
+      netBenefit: Math.round(yearNet),
+      cumulative: Math.round(cumulative),
+    });
+
+    cumulativeCashflow.push(Math.round(cumulative));
+  }
+
+  return { years, cumulativeCashflow, paybackYear };
+}
+
 // Estimar kWh a partir de monto de factura
+// Las tarifas en data.js son flat-rate por rango (precio efectivo incluyendo impuestos)
 function estimateKwhFromBill(amountARS, tariffId) {
   const tariff = TARIFFS.find(t => t.id === tariffId);
   if (!tariff) return 300;
 
+  // Buscar el rango donde amountARS / priceKwh cae dentro de [min, max]
+  for (const range of tariff.ranges) {
+    const estimatedKwh = amountARS / range.priceKwh;
+    if (estimatedKwh >= range.min && estimatedKwh <= range.max) {
+      return Math.round(estimatedKwh);
+    }
+  }
+
+  // Fallback: usar el rango donde el costo máximo cubra el monto
   for (const range of tariff.ranges) {
     const maxCost = range.max * range.priceKwh;
     if (amountARS <= maxCost) {
