@@ -113,6 +113,80 @@
       </div>
     </div>
 
+    <!-- Calculador Pro -->
+    <div class="config-form" style="border-color: var(--accent);">
+      <h3 style="color:var(--accent);">Calculador Pro</h3>
+      <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:1rem;">Selecciona equipamiento especifico para armar presupuestos.</p>
+
+      <div class="input-row">
+        <div class="form-group">
+          <label>Provincia</label>
+          <select id="pro-province"></select>
+        </div>
+        <div class="form-group">
+          <label>Consumo mensual (kWh)</label>
+          <input type="number" id="pro-kwh" value="400" min="50" step="10">
+        </div>
+      </div>
+      <div class="input-row">
+        <div class="form-group">
+          <label>Tarifa</label>
+          <select id="pro-tariff"></select>
+        </div>
+        <div class="form-group">
+          <label>Tipo de sistema</label>
+          <select id="pro-system">
+            <option value="ongrid">On-Grid</option>
+            <option value="hybrid">Hibrido</option>
+            <option value="offgrid">Off-Grid</option>
+          </select>
+        </div>
+      </div>
+
+      <hr style="border-color: var(--border); margin: 1rem 0;">
+
+      <div class="input-row">
+        <div class="form-group">
+          <label>Panel solar</label>
+          <select id="pro-panel"></select>
+        </div>
+        <div class="form-group">
+          <label>Cant. paneles (0 = auto)</label>
+          <input type="number" id="pro-num-panels" value="0" min="0" step="1">
+        </div>
+      </div>
+      <div class="input-row">
+        <div class="form-group">
+          <label>Inversor</label>
+          <select id="pro-inverter">
+            <option value="">Automatico (segun kWp)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Tipo bateria</label>
+          <select id="pro-battery">
+            <option value="litio">Litio LiFePO4</option>
+            <option value="plomo">Plomo-acido</option>
+          </select>
+        </div>
+      </div>
+
+      <hr style="border-color: var(--border); margin: 1rem 0;">
+
+      <div>
+        <label style="display:block; margin-bottom:0.5rem;"><strong>Estructuras</strong></label>
+        <div id="pro-structures"></div>
+        <button class="btn btn-secondary btn-sm" onclick="addStructureRow()" style="margin-top:0.5rem;">+ Agregar estructura</button>
+      </div>
+
+      <div style="margin-top:1.5rem; display:flex; gap:0.5rem;">
+        <button class="btn btn-primary" onclick="runProCalc()">Calcular</button>
+        <button class="btn btn-secondary" onclick="exportProPDF()">Exportar PDF</button>
+      </div>
+
+      <div id="pro-results" style="display:none; margin-top:1.5rem;"></div>
+    </div>
+
     <!-- Add/Edit Product Modal -->
     <div id="product-form" class="config-form" style="display:none;">
       <h3 id="product-form-title">Agregar producto</h3>
@@ -126,7 +200,9 @@
           <label>Categoria</label>
           <select id="pf-category">
             <option value="panel">Panel</option>
-            <option value="inversor">Inversor</option>
+            <option value="inversor">Inversor On-Grid</option>
+            <option value="inversor-hibrido">Inversor Hibrido</option>
+            <option value="inversor-offgrid">Inversor Off-Grid</option>
             <option value="bateria">Bateria</option>
             <option value="estructura">Estructura</option>
             <option value="accesorio">Accesorio</option>
@@ -175,6 +251,7 @@
   </div>
 
   <script src="/js/data.js"></script>
+  <script src="/js/calculator.js"></script>
   <script>
     const ADMIN_PASS = 'solarnav2026';
 
@@ -200,6 +277,7 @@
       document.getElementById('cfg-degradation').value = ((cfg.panelDegradation || 0.005) * 100).toFixed(1);
       document.getElementById('cfg-whatsapp').value = cfg.whatsappNumber || '5491155881126';
       renderProductTable();
+      loadProSelectors();
     }
 
     function saveAdminConfig() {
@@ -352,6 +430,176 @@
         }
       };
       reader.readAsText(file);
+    }
+
+    // ====== CALCULADOR PRO ======
+    function loadProSelectors() {
+      const products = getProducts();
+      const cfg = getConfig();
+
+      // Provincias
+      const provSel = document.getElementById('pro-province');
+      provSel.innerHTML = '';
+      PROVINCES.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id; opt.textContent = p.name + ' (HSP ' + p.hsp + ')';
+        provSel.appendChild(opt);
+      });
+
+      // Tarifas
+      const tarSel = document.getElementById('pro-tariff');
+      tarSel.innerHTML = '';
+      TARIFFS.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t.id; opt.textContent = t.name;
+        tarSel.appendChild(opt);
+      });
+
+      // Paneles
+      const panelSel = document.getElementById('pro-panel');
+      panelSel.innerHTML = '';
+      products.filter(p => p.category === 'panel').sort((a, b) => b.watts - a.watts).forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.watts + 'W — ' + p.brand + ' — ' + formatUSD(p.priceUSD) + ' (' + formatARS(calcFinalPriceARS(p)) + ')';
+        panelSel.appendChild(opt);
+      });
+
+      // Inversores (todos los tipos)
+      const invSel = document.getElementById('pro-inverter');
+      invSel.innerHTML = '<option value="">Automatico (segun kWp)</option>';
+      products.filter(p => (p.category === 'inversor' || p.category === 'inversor-offgrid' || p.category === 'inversor-hibrido') && p.watts)
+        .sort((a, b) => a.watts - b.watts).forEach(p => {
+          const opt = document.createElement('option');
+          opt.value = p.id;
+          const cat = p.category === 'inversor' ? 'On-Grid' : p.category === 'inversor-hibrido' ? 'Hibrido' : 'Off-Grid';
+          opt.textContent = (p.watts >= 1000 ? (p.watts/1000) + 'kW' : p.watts + 'W') + ' ' + p.brand + ' — ' + cat + ' — ' + formatUSD(p.priceUSD) + ' (' + formatARS(calcFinalPriceARS(p)) + ')';
+          invSel.appendChild(opt);
+        });
+    }
+
+    let structureRowCount = 0;
+    function addStructureRow() {
+      const products = getProducts();
+      const structures = products.filter(p => p.category === 'estructura');
+      const container = document.getElementById('pro-structures');
+      const rowId = 'str-row-' + (structureRowCount++);
+
+      const row = document.createElement('div');
+      row.id = rowId;
+      row.style.cssText = 'display:flex; gap:0.5rem; align-items:center; margin-bottom:0.5rem; flex-wrap:wrap;';
+
+      let opts = '<option value="">Seleccionar...</option>';
+      structures.forEach(s => {
+        opts += '<option value="' + s.id + '">' + s.name + ' — ' + formatUSD(s.priceUSD) + ' (' + formatARS(calcFinalPriceARS(s)) + ')</option>';
+      });
+
+      row.innerHTML = '<select class="str-select" style="flex:1; min-width:200px;">' + opts + '</select>'
+        + '<input type="number" class="str-qty" value="1" min="1" style="width:60px;">'
+        + '<button class="btn btn-danger btn-sm" onclick="document.getElementById(\'' + rowId + '\').remove()" style="padding:0.2rem 0.5rem;">X</button>';
+
+      container.appendChild(row);
+    }
+
+    function getStructureItems() {
+      const items = [];
+      document.querySelectorAll('#pro-structures > div').forEach(row => {
+        const sel = row.querySelector('.str-select');
+        const qty = row.querySelector('.str-qty');
+        if (sel && sel.value && qty) {
+          items.push({ id: parseInt(sel.value), qty: parseInt(qty.value) || 1 });
+        }
+      });
+      return items;
+    }
+
+    function runProCalc() {
+      const panelId = parseInt(document.getElementById('pro-panel').value);
+      const invVal = document.getElementById('pro-inverter').value;
+      const numPanels = parseInt(document.getElementById('pro-num-panels').value) || 0;
+      const structureItems = getStructureItems();
+
+      const params = {
+        provinceId: document.getElementById('pro-province').value,
+        monthlyKwh: parseFloat(document.getElementById('pro-kwh').value) || 400,
+        tariffId: document.getElementById('pro-tariff').value,
+        systemType: document.getElementById('pro-system').value,
+        batteryType: document.getElementById('pro-battery').value,
+        panelId: panelId || null,
+        inverterId: invVal ? parseInt(invVal) : null,
+        numPanelsOverride: numPanels > 0 ? numPanels : null,
+        structureItems: structureItems.length > 0 ? structureItems : null,
+      };
+
+      const r = calculateSolar(params);
+      if (r.error) { alert(r.error); return; }
+
+      renderProResults(r);
+    }
+
+    function renderProResults(r) {
+      const div = document.getElementById('pro-results');
+      div.style.display = 'block';
+
+      const row = (label, val) => '<div style="display:flex;justify-content:space-between;padding:0.3rem 0;border-bottom:1px solid var(--border);"><span>' + label + '</span><strong>' + val + '</strong></div>';
+
+      let html = '<h4 style="color:var(--accent); margin-bottom:0.5rem;">Resultado</h4>';
+
+      html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:0.5rem;margin-bottom:1rem;">';
+      html += '<div style="background:var(--surface);padding:0.75rem;border-radius:8px;text-align:center;"><div style="font-size:1.5rem;color:var(--accent);">' + r.systemKwp.toFixed(2) + '</div><div style="font-size:0.75rem;color:var(--text-muted);">kWp</div></div>';
+      html += '<div style="background:var(--surface);padding:0.75rem;border-radius:8px;text-align:center;"><div style="font-size:1.5rem;color:var(--accent);">' + r.numPanels + '</div><div style="font-size:0.75rem;color:var(--text-muted);">Paneles</div></div>';
+      html += '<div style="background:var(--surface);padding:0.75rem;border-radius:8px;text-align:center;"><div style="font-size:1.5rem;color:var(--gold);">' + formatARS(r.totalCostARS) + '</div><div style="font-size:0.75rem;color:var(--text-muted);">Costo total</div></div>';
+      html += '<div style="background:var(--surface);padding:0.75rem;border-radius:8px;text-align:center;"><div style="font-size:1.5rem;color:var(--accent);">' + r.coveragePercent.toFixed(0) + '%</div><div style="font-size:0.75rem;color:var(--text-muted);">Cobertura</div></div>';
+      html += '</div>';
+
+      html += '<h4 style="margin:1rem 0 0.5rem;">Equipamiento</h4>';
+      html += row('Panel', r.selectedPanel + ' (' + r.panelWatts + 'W) x' + r.numPanels);
+      html += row('Paneles', formatARS(r.panelCostARS));
+
+      if (r.selectedInverters.length) {
+        r.selectedInverters.forEach(inv => {
+          html += row('Inversor', inv.name + ' (' + inv.watts + 'W) x' + inv.qty);
+          html += row('Inversores', formatARS(inv.priceARS));
+        });
+      }
+
+      if (r.structureDetail && r.structureDetail.length > 0) {
+        html += '<h4 style="margin:1rem 0 0.5rem;">Estructuras (detalle)</h4>';
+        r.structureDetail.forEach(s => {
+          html += row(s.name + ' x' + s.qty, formatARS(s.totalARS));
+        });
+        html += row('Subtotal estructuras', formatARS(r.structureCostARS));
+      } else {
+        html += row('Estructura (estimado ' + Math.round(getConfig().structurePercent * 100) + '%)', formatARS(r.structureCostARS));
+      }
+
+      if (r.batteryCount > 0) {
+        html += row('Bateria', r.selectedBattery + ' x' + r.batteryCount);
+        html += row('Baterias', formatARS(r.batteryCostARS));
+      }
+
+      html += row('Instalacion', formatARS(r.installCostARS));
+      html += '<div style="display:flex;justify-content:space-between;padding:0.5rem 0;border-top:2px solid var(--accent);margin-top:0.5rem;font-size:1.1rem;"><strong>TOTAL</strong><strong style="color:var(--gold);">' + formatARS(r.totalCostARS) + '</strong></div>';
+
+      html += '<h4 style="margin:1rem 0 0.5rem;">Generacion y ahorro</h4>';
+      html += row('Generacion mensual', Math.round(r.monthlyGenerationKwh) + ' kWh');
+      html += row('Generacion anual', Math.round(r.annualGenerationKwh) + ' kWh');
+      html += row('Ahorro mensual', formatARS(r.monthlySavingsARS));
+      html += row('Ahorro anual', formatARS(r.annualSavingsARS));
+      if (r.excessMonthlyKwh > 0) html += row('Excedente mensual', Math.round(r.excessMonthlyKwh) + ' kWh');
+      html += row('Payback', r.paybackYears < 99 ? r.paybackYears + ' años' : 'N/A');
+      html += row('ROI 25 años', r.roi25years.toFixed(0) + '%');
+      html += row('Factura antes', formatARS(r.monthlyBillBefore) + '/mes');
+      html += row('Factura despues', formatARS(r.monthlyBillAfter) + '/mes');
+      html += row('Reduccion', r.billReductionPct.toFixed(0) + '%');
+
+      div.innerHTML = html;
+    }
+
+    function exportProPDF() {
+      const div = document.getElementById('pro-results');
+      if (div.style.display === 'none') { alert('Primero calcula un presupuesto'); return; }
+      window.print();
     }
   </script>
 </body>

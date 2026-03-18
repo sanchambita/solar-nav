@@ -26,6 +26,9 @@ function calculateSolar(params) {
     autonomyDays = systemType === 'offgrid' ? 3 : 2,
     batteryType = 'litio',
     essentialLoadPct = systemType === 'hybrid' ? 50 : 100,
+    panelId = null,
+    inverterId = null,
+    structureItems = null, // [{id, qty}]
   } = params;
 
   // 1. Ubicación
@@ -50,7 +53,9 @@ function calculateSolar(params) {
   let systemKwpNeeded = (dailyKwh * sys.panelOversize) / (effectiveHsp * sys.efficiency);
 
   const panels = products.filter(p => p.category === 'panel').sort((a, b) => b.watts - a.watts);
-  const selectedPanel = panels[0] || { watts: cfg.defaultPanelWp, priceUSD: 125, iva: 0.105, name: 'Panel 550W' };
+  const selectedPanel = (panelId && products.find(p => p.id === panelId && p.category === 'panel'))
+    || panels[0]
+    || { watts: cfg.defaultPanelWp, priceUSD: 125, iva: 0.105, name: 'Panel 550W' };
   const panelWp = selectedPanel.watts / 1000;
 
   let recommendedPanels = Math.ceil(systemKwpNeeded / panelWp);
@@ -85,13 +90,22 @@ function calculateSolar(params) {
   const systemWatts = actualSystemKwp * 1000;
   let selectedInverters = [];
 
-  const singleInverter = inverters.find(inv => inv.watts >= systemWatts * 0.8);
-  if (singleInverter) {
-    selectedInverters = [{ product: singleInverter, qty: 1 }];
-  } else if (inverters.length > 0) {
-    const largest = inverters[inverters.length - 1];
-    const qty = Math.ceil(systemWatts / largest.watts);
-    selectedInverters = [{ product: largest, qty }];
+  if (inverterId) {
+    const manualInv = products.find(p => p.id === inverterId && p.watts);
+    if (manualInv) {
+      const qty = Math.ceil(systemWatts / manualInv.watts) || 1;
+      selectedInverters = [{ product: manualInv, qty }];
+    }
+  }
+  if (selectedInverters.length === 0) {
+    const singleInverter = inverters.find(inv => inv.watts >= systemWatts * 0.8);
+    if (singleInverter) {
+      selectedInverters = [{ product: singleInverter, qty: 1 }];
+    } else if (inverters.length > 0) {
+      const largest = inverters[inverters.length - 1];
+      const qty = Math.ceil(systemWatts / largest.watts);
+      selectedInverters = [{ product: largest, qty }];
+    }
   }
 
   // 6. Cálculo de baterías (solo hybrid/offgrid) — Bug 1+2 fix
@@ -131,7 +145,20 @@ function calculateSolar(params) {
     inverterCostARS += inv.qty * calcFinalPriceARS(inv.product);
   });
 
-  const structureCostARS = panelCostARS * cfg.structurePercent;
+  let structureCostARS = 0;
+  let structureDetail = [];
+  if (structureItems && structureItems.length > 0) {
+    for (const item of structureItems) {
+      const prod = products.find(p => p.id === item.id);
+      if (prod) {
+        const cost = item.qty * calcFinalPriceARS(prod);
+        structureCostARS += cost;
+        structureDetail.push({ name: prod.name, qty: item.qty, unitARS: calcFinalPriceARS(prod), totalARS: cost });
+      }
+    }
+  } else {
+    structureCostARS = panelCostARS * cfg.structurePercent;
+  }
   const equipmentCostARS = panelCostARS + inverterCostARS + structureCostARS + batteryCostARS;
   const installMultiplier = (cfg.installMultipliers && cfg.installMultipliers[systemType]) || 1.0;
   const installCostARS = (cfg.installBaseUSD + numPanels * cfg.installPerPanelUSD) * cfg.dollarRate * installMultiplier;
@@ -213,7 +240,7 @@ function calculateSolar(params) {
     autonomyDays, essentialLoadPct,
 
     // Costs
-    panelCostARS, inverterCostARS, structureCostARS,
+    panelCostARS, inverterCostARS, structureCostARS, structureDetail,
     batteryCostARS, installCostARS, totalCostARS,
 
     // Generation & Savings
