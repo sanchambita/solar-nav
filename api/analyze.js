@@ -183,21 +183,19 @@ export default async function handler(req, res) {
       } else {
         const err = await geminiRes.json().catch(() => ({}));
         const errMsg = err.error?.message || '';
-        if (!groqKey || isPdf) {
-          // Friendly message for quota/billing errors
-          if (geminiRes.status === 429 || errMsg.includes('quota') || errMsg.includes('Quota')) {
-            return res.status(503).json({
-              error: 'El servicio de IA esta temporalmente saturado. Intenta de nuevo en unos minutos o usa el modo manual.',
-              retryable: true,
-            });
-          }
-          return res.status(geminiRes.status).json({ error: errMsg || 'Error al analizar con IA' });
-        }
+        console.error('Gemini failed:', geminiRes.status, errMsg);
       }
     }
 
     if (!text) {
-      console.error('Both AI providers failed.', groqError ? `Groq: ${groqError}` : 'Groq: not attempted');
+      console.error('All AI providers failed.', groqError || 'Groq: not attempted or no key');
+      // Return the most useful error message
+      if (groqError) {
+        return res.status(502).json({
+          error: 'Error al analizar la factura. Groq: ' + groqError.slice(0, 150),
+          debug: true,
+        });
+      }
       return res.status(502).json({ error: 'No se pudo conectar con la IA. Intenta de nuevo.' });
     }
 
