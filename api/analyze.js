@@ -111,14 +111,18 @@ export default async function handler(req, res) {
 
     const safeMime = ALLOWED_MIMES.includes(mimeType) ? mimeType : 'image/jpeg';
     let text = '';
+    const debug = [];
 
     // --- Try Groq first (fast, free) — solo para imágenes, no soporta PDF ---
     let groqError = null;
+    debug.push(`groqKey: ${groqKey ? 'yes(' + groqKey.slice(0,8) + '...)' : 'NO'}, isImage: ${isImage}, isPdf: ${isPdf}, b64len: ${image.length}`);
+
     if (groqKey && isImage) {
       try {
         // Groq limit: 4MB base64 images
         if (image.length > 4 * 1024 * 1024) {
-          groqError = 'Image too large for Groq (>4MB base64), skipping to Gemini';
+          groqError = 'Image >4MB base64, skipping Groq';
+          debug.push(groqError);
         } else {
           const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
@@ -140,17 +144,24 @@ export default async function handler(req, res) {
             }),
           });
 
+          debug.push(`Groq status: ${groqRes.status}`);
           if (groqRes.ok) {
             const groqData = await groqRes.json();
-            text = groqData.choices?.[0]?.message?.content || '';
+            const content = groqData.choices?.[0]?.message?.content || '';
+            debug.push(`Groq content length: ${content.length}`);
+            text = content;
           } else {
             const errBody = await groqRes.text().catch(() => '');
-            groqError = `Groq ${groqRes.status}: ${errBody.slice(0, 200)}`;
+            groqError = `Groq ${groqRes.status}: ${errBody.slice(0, 300)}`;
+            debug.push(groqError);
           }
         }
       } catch (e) {
         groqError = `Groq exception: ${e.message}`;
+        debug.push(groqError);
       }
+    } else {
+      debug.push(`Groq skipped: ${!groqKey ? 'no key' : 'not an image'}`);
     }
 
     // --- Fallback: Gemini (soporta PDF + imágenes multi-página) ---
@@ -188,15 +199,11 @@ export default async function handler(req, res) {
     }
 
     if (!text) {
-      console.error('All AI providers failed.', groqError || 'Groq: not attempted or no key');
-      // Return the most useful error message
-      if (groqError) {
-        return res.status(502).json({
-          error: 'Error al analizar la factura. Groq: ' + groqError.slice(0, 150),
-          debug: true,
-        });
-      }
-      return res.status(502).json({ error: 'No se pudo conectar con la IA. Intenta de nuevo.' });
+      console.error('All AI providers failed. Debug:', debug.join(' | '));
+      return res.status(502).json({
+        error: 'No se pudo analizar la factura.',
+        debug: debug.join(' | '),
+      });
     }
 
     const jsonMatch = text.match(/\{[\s\S]*\}/);

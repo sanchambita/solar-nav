@@ -156,6 +156,7 @@ async function processFile(file) {
       const retryable = data.retryable || response.status === 503 || response.status === 429;
       const err = new Error(data.error || 'Error al analizar');
       err.retryable = retryable;
+      err.debug = data.debug || null;
       throw err;
     }
 
@@ -166,8 +167,10 @@ async function processFile(file) {
     if (err.retryable) {
       hint = 'El servicio de IA esta saturado. Intenta de nuevo en unos segundos.';
     }
+    const debugInfo = err.debug ? '<p style="font-size:0.7rem; color:#f66; margin-top:0.5rem; word-break:break-all;">' + esc(err.debug) + '</p>' : '';
     area.innerHTML = '<div class="upload-icon">&#10060;</div><p>' + esc(err.message) + '</p>'
       + '<p style="font-size:0.8rem; color:var(--text-muted);">' + hint + '</p>'
+      + debugInfo
       + '<button class="btn btn-secondary btn-sm" style="margin-top:0.5rem;" onclick="document.getElementById(\'file-input\').click()">Reintentar</button>';
   }
 }
