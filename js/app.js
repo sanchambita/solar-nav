@@ -153,13 +153,22 @@ async function processFile(file) {
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error || 'Error al analizar');
+      const retryable = data.retryable || response.status === 503 || response.status === 429;
+      const err = new Error(data.error || 'Error al analizar');
+      err.retryable = retryable;
+      throw err;
     }
 
     showBillResult(data.result);
     autoFillFromBill(data.result);
   } catch (err) {
-    area.innerHTML = '<div class="upload-icon">&#10060;</div><p>Error: ' + esc(err.message) + '</p><p style="font-size:0.8rem; color:var(--text-muted);">Intenta con otra foto/PDF o usa el modo manual</p>';
+    let hint = 'Intenta con otra foto/PDF o usa el modo manual';
+    if (err.retryable) {
+      hint = 'El servicio de IA esta saturado. Intenta de nuevo en unos segundos.';
+    }
+    area.innerHTML = '<div class="upload-icon">&#10060;</div><p>' + esc(err.message) + '</p>'
+      + '<p style="font-size:0.8rem; color:var(--text-muted);">' + hint + '</p>'
+      + '<button class="btn btn-secondary btn-sm" style="margin-top:0.5rem;" onclick="document.getElementById(\'file-input\').click()">Reintentar</button>';
   }
 }
 

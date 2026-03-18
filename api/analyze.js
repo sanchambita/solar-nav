@@ -144,32 +144,43 @@ export default async function handler(req, res) {
 
     // --- Fallback: Gemini (soporta PDF + imágenes multi-página) ---
     if (!text && geminiKey) {
-      const geminiRes = await fetch(
-        'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': geminiKey,
-          },
-          body: JSON.stringify({
-            contents: [{
-              parts: [
-                { text: PROMPT },
-                { inline_data: { mime_type: safeMime, data: image } }
-              ]
-            }]
-          }),
-        }
-      );
+      const geminiBody = JSON.stringify({
+        contents: [{
+          parts: [
+            { text: PROMPT },
+            { inline_data: { mime_type: safeMime, data: image } }
+          ]
+        }]
+      });
+      const geminiHeaders = {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': geminiKey,
+      };
+      const geminiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+
+      let geminiRes = await fetch(geminiUrl, { method: 'POST', headers: geminiHeaders, body: geminiBody });
+
+      // Retry once on 429 (rate limit) after short wait
+      if (geminiRes.status === 429) {
+        await new Promise(r => setTimeout(r, 5000));
+        geminiRes = await fetch(geminiUrl, { method: 'POST', headers: geminiHeaders, body: geminiBody });
+      }
 
       if (geminiRes.ok) {
         const geminiData = await geminiRes.json();
         text = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
       } else {
-        const err = await geminiRes.json();
+        const err = await geminiRes.json().catch(() => ({}));
+        const errMsg = err.error?.message || '';
         if (!groqKey || isPdf) {
-          return res.status(geminiRes.status).json({ error: err.error?.message || 'Error al analizar con IA' });
+          // Friendly message for quota/billing errors
+          if (geminiRes.status === 429 || errMsg.includes('quota') || errMsg.includes('Quota')) {
+            return res.status(503).json({
+              error: 'El servicio de IA esta temporalmente saturado. Intenta de nuevo en unos minutos o usa el modo manual.',
+              retryable: true,
+            });
+          }
+          return res.status(geminiRes.status).json({ error: errMsg || 'Error al analizar con IA' });
         }
       }
     }
