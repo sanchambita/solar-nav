@@ -113,33 +113,44 @@ export default async function handler(req, res) {
     let text = '';
 
     // --- Try Groq first (fast, free) — solo para imágenes, no soporta PDF ---
+    let groqError = null;
     if (groqKey && isImage) {
       try {
-        const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${groqKey}`,
-          },
-          body: JSON.stringify({
-            model: 'meta-llama/llama-4-scout-17b-16e-instruct',
-            messages: [{
-              role: 'user',
-              content: [
-                { type: 'text', text: PROMPT },
-                { type: 'image_url', image_url: { url: `data:${safeMime};base64,${image}` } }
-              ]
-            }],
-            temperature: 0.1,
-            max_tokens: 2000,
-          }),
-        });
+        // Groq limit: 4MB base64 images
+        if (image.length > 4 * 1024 * 1024) {
+          groqError = 'Image too large for Groq (>4MB base64), skipping to Gemini';
+        } else {
+          const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${groqKey}`,
+            },
+            body: JSON.stringify({
+              model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+              messages: [{
+                role: 'user',
+                content: [
+                  { type: 'text', text: PROMPT },
+                  { type: 'image_url', image_url: { url: `data:${safeMime};base64,${image}` } }
+                ]
+              }],
+              temperature: 0.1,
+              max_tokens: 2000,
+            }),
+          });
 
-        if (groqRes.ok) {
-          const groqData = await groqRes.json();
-          text = groqData.choices?.[0]?.message?.content || '';
+          if (groqRes.ok) {
+            const groqData = await groqRes.json();
+            text = groqData.choices?.[0]?.message?.content || '';
+          } else {
+            const errBody = await groqRes.text().catch(() => '');
+            groqError = `Groq ${groqRes.status}: ${errBody.slice(0, 200)}`;
+          }
         }
-      } catch { /* fall through to Gemini */ }
+      } catch (e) {
+        groqError = `Groq exception: ${e.message}`;
+      }
     }
 
     // --- Fallback: Gemini (soporta PDF + imágenes multi-página) ---
@@ -186,6 +197,7 @@ export default async function handler(req, res) {
     }
 
     if (!text) {
+      console.error('Both AI providers failed.', groqError ? `Groq: ${groqError}` : 'Groq: not attempted');
       return res.status(502).json({ error: 'No se pudo conectar con la IA. Intenta de nuevo.' });
     }
 
