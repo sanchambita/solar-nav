@@ -19,6 +19,7 @@ function showToast(msg, type = 'info') {
 
 // ---------- Init ----------
 document.addEventListener('DOMContentLoaded', () => {
+  fetchBNADollar();
   populateProvinces();
   populateTariffs();
   populateEquipment();
@@ -28,6 +29,21 @@ document.addEventListener('DOMContentLoaded', () => {
   setupProgressTracking();
   incrementVisitCounter();
 });
+
+// ---------- BNA Dollar Rate ----------
+async function fetchBNADollar() {
+  try {
+    const res = await fetch('/api/dollar');
+    const data = await res.json();
+    if (data.venta) {
+      CONFIG.dollarRate = data.venta;
+      const el = document.getElementById('dollar-rate');
+      if (el) el.textContent = 'Dólar BNA: $' + data.venta.toLocaleString('es-AR');
+    }
+  } catch (e) {
+    console.warn('No se pudo obtener dólar BNA, usando valor por defecto:', CONFIG.dollarRate);
+  }
+}
 
 // ---------- Province selector ----------
 function populateProvinces() {
@@ -854,8 +870,7 @@ function renderFinancing(r) {
   let flexTotal = 0;
   const panel = products.find(p => p.name === r.selectedPanel) || products.find(p => p.category === 'panel');
   if (panel) {
-    const baseUSD = panel.flexPriceUSD || panel.priceUSD;
-    const panelFlex = baseUSD * cfg.margin * cfg.dollarRate * (1 + panel.iva);
+    const panelFlex = panel.priceARS || ((panel.flexPriceUSD || panel.priceUSD) * cfg.margin * cfg.dollarRate * (1 + panel.iva));
     flexTotal += r.numPanels * panelFlex;
   } else {
     flexTotal += r.panelCostARS / (1 - 0.15); // approximate
@@ -865,8 +880,7 @@ function renderFinancing(r) {
   r.selectedInverters.forEach(inv => {
     const invProd = products.find(p => p.name === inv.name);
     if (invProd) {
-      const baseUSD = invProd.flexPriceUSD || invProd.priceUSD;
-      const invFlex = baseUSD * cfg.margin * cfg.dollarRate * (1 + invProd.iva);
+      const invFlex = invProd.priceARS || ((invProd.flexPriceUSD || invProd.priceUSD) * cfg.margin * cfg.dollarRate * (1 + invProd.iva));
       flexTotal += inv.qty * invFlex;
     } else {
       flexTotal += inv.priceARS / (1 - 0.15);
@@ -1107,6 +1121,7 @@ function renderProducts() {
     const priceARS = calcFinalPriceARS(p);
     const usd = p.flexPriceUSD || p.priceUSD;
     const label = CATEGORY_LABELS[p.category] || p.category;
+    const ivaLine = p.priceARS ? 'IVA incluido' : formatUSD(usd) + ' + IVA ' + (p.iva * 100).toFixed(1) + '%';
 
     const card = document.createElement('div');
     card.className = 'product-card';
@@ -1115,7 +1130,7 @@ function renderProducts() {
       <h3>${esc(p.name)}</h3>
       <p class="desc">${esc(p.description)}</p>
       <div class="price">${formatARS(priceARS)}</div>
-      <div class="price-usd">${formatUSD(usd)} + IVA ${(p.iva * 100).toFixed(1)}%</div>
+      <div class="price-usd">${ivaLine}</div>
       <button class="btn-consult" onclick="consultProduct('${esc(p.name).replace(/'/g, "\\'")}')">Consultar</button>
     `;
     grid.appendChild(card);
