@@ -678,7 +678,7 @@ function runAnalysisAnimation(calcParams) {
     }, time);
   });
 
-  // After animation, run actual calculation and show results
+  // After animation, run actual calculation — then show lead modal before results
   setTimeout(() => {
     const result = calculateSolar(calcParams);
 
@@ -694,15 +694,80 @@ function runAnalysisAnimation(calcParams) {
     currentResult = result;
     if (!currentPanelOverride) currentPanelOverride = null;
 
-    incrementQuoteCounter();
-
-    updateProgress(1, true);
-    updateProgress(2, true);
-    updateProgress(3, true);
-    updateProgress(4, true);
-
-    renderResults(result);
+    // Show lead capture modal before showing results
+    showLeadModal();
   }, 2600);
+}
+
+// ---------- Lead capture ----------
+function showLeadModal() {
+  const modal = document.getElementById('lead-modal');
+  modal.style.display = 'flex';
+  document.getElementById('lead-name').focus();
+}
+
+function hideLeadModal() {
+  document.getElementById('lead-modal').style.display = 'none';
+}
+
+async function submitLead() {
+  const name = document.getElementById('lead-name').value.trim();
+  const email = document.getElementById('lead-email').value.trim();
+  const phone = document.getElementById('lead-phone').value.trim();
+
+  if (!name) { showToast('Ingresa tu nombre', 'error'); return; }
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showToast('Ingresa un email valido', 'error'); return; }
+
+  const btn = document.getElementById('lead-submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+
+  // Build budget summary for the API
+  const r = currentResult;
+  const budget = r ? {
+    province: r.province,
+    monthlyKwh: r.monthlyKwh,
+    systemType: r.systemType,
+    totalCostARS: r.totalCostARS,
+    numPanels: r.numPanels,
+    panelName: r.selectedPanel,
+    inverterInfo: r.selectedInverters?.map(i => i.qty + 'x ' + i.name).join(', '),
+    batteryCount: r.batteryCount || 0,
+    structureInfo: r.structureDetail?.map(s => s.qty + 'x ' + s.name).join(', '),
+    panelCostARS: r.panelCostARS,
+    inverterCostARS: r.inverterCostARS,
+    structureCostARS: r.structureCostARS,
+    batteryCostARS: r.batteryCostARS,
+    installCostARS: r.installCostARS,
+    annualSavingsARS: r.annualSavingsARS,
+    paybackYears: r.paybackYears,
+  } : null;
+
+  try {
+    const res = await fetch('/api/lead', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, phone, budget }),
+    });
+    const data = await res.json();
+    if (data.emailSent) {
+      showToast('Presupuesto enviado a ' + email, 'success');
+    }
+  } catch (err) {
+    console.warn('Lead API error:', err.message);
+  }
+
+  // Show results regardless of API success
+  hideLeadModal();
+  incrementQuoteCounter();
+  updateProgress(1, true);
+  updateProgress(2, true);
+  updateProgress(3, true);
+  updateProgress(4, true);
+  renderResults(currentResult);
+
+  btn.disabled = false;
+  btn.textContent = 'Ver presupuesto';
 }
 
 // ---------- CountUp Animation (M3.2) ----------
