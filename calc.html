@@ -232,21 +232,16 @@
       </div>
 
       <div id="battery-options" style="display:none;">
+        <input type="hidden" id="battery-type" value="litio">
         <div class="form-group">
-          <label>Tipo de bateria</label>
-          <select id="battery-type">
-            <option value="litio">Litio LiFePO4 (recomendado)</option>
-            <option value="plomo">Plomo-acido</option>
-          </select>
+          <label>Autonomia: <strong id="autonomy-val">24</strong> horas</label>
+          <input type="range" id="autonomy-hours" min="6" max="72" value="24" step="6" oninput="document.getElementById('autonomy-val').textContent=this.value">
+          <span style="font-size:0.75rem; color:var(--text-muted);">Horas de respaldo con baterias Pylontech LiFePO4</span>
         </div>
-        <div class="form-group">
-          <label>Dias de autonomia: <strong id="autonomy-val">2</strong></label>
-          <input type="range" id="autonomy-days" min="1" max="7" value="2" oninput="document.getElementById('autonomy-val').textContent=this.value">
-        </div>
-        <div id="essential-load-group" class="form-group">
-          <label>Cargas esenciales: <strong id="essential-val">50</strong>%</label>
-          <input type="range" id="essential-load" min="10" max="100" value="50" step="5" oninput="document.getElementById('essential-val').textContent=this.value">
-          <span style="font-size:0.75rem; color:var(--text-muted);">% del consumo que cubren las baterias</span>
+        <div id="critical-load-group" class="form-group">
+          <label>Cargas criticas: <strong id="critical-val">3000</strong> W</label>
+          <input type="number" id="critical-load-watts" value="3000" min="500" max="50000" step="100" oninput="document.getElementById('critical-val').textContent=this.value">
+          <span style="font-size:0.75rem; color:var(--text-muted);">Potencia en watts de los equipos que necesitas mantener (heladera, luces, router, etc.)</span>
         </div>
       </div>
     </div>

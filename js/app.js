@@ -172,14 +172,13 @@ function setSystemType(type) {
   });
 
   const battOpts = document.getElementById('battery-options');
-  const essGroup = document.getElementById('essential-load-group');
+  const critGroup = document.getElementById('critical-load-group');
   battOpts.style.display = type === 'ongrid' ? 'none' : 'block';
-  essGroup.style.display = type === 'hybrid' ? 'block' : 'none';
+  critGroup.style.display = type === 'ongrid' ? 'none' : 'block';
 
-  const slider = document.getElementById('autonomy-days');
-  if (type === 'offgrid') { slider.value = 3; }
-  else if (type === 'hybrid') { slider.value = 2; }
-  document.getElementById('autonomy-val').textContent = slider.value;
+  const slider = document.getElementById('autonomy-hours');
+  slider.value = 24;
+  document.getElementById('autonomy-val').textContent = 24;
 
   updateProgress(3, true);
 }
@@ -560,9 +559,9 @@ function runCalculation() {
     provinceId, monthlyKwh, tariffId,
     systemType: currentSystemType,
     numPanelsOverride: numPanelsInput > 0 ? numPanelsInput : currentPanelOverride,
-    autonomyDays: parseInt(document.getElementById('autonomy-days').value),
+    autonomyHours: parseInt(document.getElementById('autonomy-hours').value),
     batteryType: document.getElementById('battery-type').value,
-    essentialLoadPct: parseInt(document.getElementById('essential-load').value),
+    criticalLoadWatts: parseInt(document.getElementById('critical-load-watts').value) || 3000,
     panelId: panelSelVal ? parseInt(panelSelVal) : null,
     inverterId: invSelVal ? parseInt(invSelVal) : null,
     phaseType: currentPhaseType,
@@ -829,7 +828,7 @@ function renderProposal(r) {
 
   const coverText = r.coveragePercent >= 100 ? 'cubriendo el 100% de tu consumo' : 'cubriendo el ' + Math.round(r.coveragePercent) + '% de tu consumo';
   const paybackText = r.paybackYears < 50 ? 'con un recupero estimado en ' + formatNumber(r.paybackYears) + ' anos' : '';
-  const battText = r.systemType !== 'ongrid' ? ' Con almacenamiento de ' + r.batteryKwh + ' kWh en baterias de ' + r.batteryTypeLabel + ' para ' + r.autonomyDays + ' dias de autonomia.' : '';
+  const battText = r.systemType !== 'ongrid' ? ' Con almacenamiento de ' + r.batteryKwh + ' kWh en baterias ' + r.batteryTypeLabel + ' para ' + r.autonomyHours + ' horas de autonomia (' + r.criticalLoadWatts + 'W cargas criticas).' : '';
   const injText = r.systemType === 'ongrid' && r.excessMonthlyKwh > 0 ? ' Bajo la Ley 27.424, el excedente de ' + Math.round(r.excessMonthlyKwh) + ' kWh/mes se inyecta a la red generando credito adicional.' : '';
 
   summary.innerHTML = 'Para tu hogar en <strong>' + esc(r.province) + '</strong> (' + r.hsp + ' HSP), recomendamos un sistema <strong>' + esc(r.systemTypeLabel) + '</strong> de <strong>' + formatNumber(r.systemKwp) + ' kWp</strong> con ' + r.numPanels + ' paneles ' + esc(r.selectedPanel) + ', ' + coverText + '. '
@@ -945,9 +944,9 @@ function renderComparison() {
     results[type] = calculateSolar({
       provinceId, monthlyKwh, tariffId,
       systemType: type,
-      autonomyDays: type === 'offgrid' ? 3 : 2,
+      autonomyHours: 24,
       batteryType: 'litio',
-      essentialLoadPct: 50,
+      criticalLoadWatts: 3000,
     });
   });
 
@@ -962,7 +961,7 @@ function renderComparison() {
     { label: 'Payback', key: r => r.paybackYears < 50 ? formatNumber(r.paybackYears) + ' anos' : 'N/A', best: 'min', numKey: r => r.paybackYears },
     { label: 'Cobertura', key: r => Math.round(r.coveragePercent) + '%', best: 'max', numKey: r => r.coveragePercent },
     { label: 'ROI ' + (getConfig().projectLifeYears || 20) + ' anos', key: r => Math.round(r.roi25years) + '%', best: 'max', numKey: r => r.roi25years },
-    { label: 'Autonomia', key: r => r.systemType === 'ongrid' ? 'No (conectado a red)' : r.autonomyDays + ' dias' },
+    { label: 'Autonomia', key: r => r.systemType === 'ongrid' ? 'No (conectado a red)' : r.autonomyHours + ' hs' },
     { label: 'Baterias', key: r => r.batteryCount > 0 ? r.batteryCount + 'x ' + (r.selectedBattery || '') : 'No requiere' },
     { label: 'CO2 evitado', key: r => formatNumber(r.annualCO2kg) + ' kg/ano' },
   ];
@@ -1225,7 +1224,7 @@ async function exportPDF() {
     }
     if (r.batteryCount > 0 && r.selectedBattery) {
       y = addRow(r.batteryCount + 'x ' + r.selectedBattery + ' (' + r.batteryTypeLabel + ')', formatARS(r.batteryCostARS), y);
-      y = addRow('Autonomia', r.autonomyDays + ' dias / ' + r.batteryKwh + ' kWh', y);
+      y = addRow('Autonomia', r.autonomyHours + ' hs / ' + r.batteryKwh + ' kWh / ' + r.criticalLoadWatts + 'W criticos', y);
     }
     y = addRow('Cobertura del consumo', Math.round(r.coveragePercent) + '%', y);
     y = addRow('Superficie requerida', formatNumber(r.areaM2) + ' m2', y);

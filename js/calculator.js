@@ -11,8 +11,7 @@ const SYSTEM_DEFAULTS = {
 };
 
 const BATTERY_DEFAULTS = {
-  litio:  { dod: 0.80, efficiency: 0.95, cycleLife: 4000, label: 'Litio LiFePO4' },
-  plomo:  { dod: 0.50, efficiency: 0.85, cycleLife: 600, label: 'Plomo-ácido' },
+  litio:  { dod: 0.95, efficiency: 0.95, cycleLife: 6000, label: 'Litio LiFePO4' },
 };
 
 function calculateSolar(params) {
@@ -26,9 +25,9 @@ function calculateSolar(params) {
     roofType = 'chapa',
     maxPowerKw = 10,
     numPanelsOverride = null,
-    autonomyDays = systemType === 'offgrid' ? 3 : 2,
+    autonomyHours = 24,
     batteryType = 'litio',
-    essentialLoadPct = systemType === 'hybrid' ? 50 : 100,
+    criticalLoadWatts = 3000,
     panelId = null,
     inverterId = null,
     structureItems = null, // [{id, qty}]
@@ -130,13 +129,18 @@ function calculateSolar(params) {
   let batteryCostARS = 0;
 
   if (systemType !== 'ongrid') {
-    // Battery must cover inverter nominal power
+    // Battery sized by: cargas críticas (W) × autonomía (horas) → kWh necesarios
+    // Luego verificar que cubra potencia nominal del inversor
     const inverterWatts = selectedInverters.reduce((sum, i) => sum + i.product.watts * i.qty, 0);
+    const energyNeededKwh = (criticalLoadWatts * autonomyHours) / 1000;
     const batteries = products.filter(p => p.category === 'bateria' && p.capacityKwh);
     if (batteries.length > 0) {
-      selectedBattery = batteries[0]; // Use the standard battery
+      selectedBattery = batteries[0]; // Pylontech US5000
       const maxDischargeW = selectedBattery.maxDischargeW || 5000;
-      batteryCount = Math.ceil(inverterWatts / maxDischargeW);
+      // Mínimo: cubrir energía (autonomía) O cubrir potencia del inversor
+      const byEnergy = Math.ceil(energyNeededKwh / selectedBattery.capacityKwh);
+      const byPower = Math.ceil(inverterWatts / maxDischargeW);
+      batteryCount = Math.max(byEnergy, byPower);
       batteryKwh = batteryCount * selectedBattery.capacityKwh;
       batteryCostARS = batteryCount * calcFinalPriceARS(selectedBattery);
     }
@@ -256,7 +260,7 @@ function calculateSolar(params) {
     batteryCapKwh: selectedBattery ? selectedBattery.capacityKwh : 0,
     batteryCostARS,
     batteryType, batteryTypeLabel: bat.label,
-    autonomyDays, essentialLoadPct,
+    autonomyHours, criticalLoadWatts,
 
     // Costs
     panelCostARS, inverterCostARS, structureCostARS, structureDetail,
