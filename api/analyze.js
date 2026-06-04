@@ -13,7 +13,7 @@ const ALLOWED_FIELDS = [
   'dias_periodo', 'monto_total', 'cargo_fijo', 'cargo_variable_1',
   'cargo_variable_2', 'conceptos_electricos', 'impuestos', 'subsidio',
   'nivel_subsidio', 'titular', 'direccion', 'localidad', 'provincia',
-  'periodo', 'numero_cuenta',
+  'periodo', 'numero_cuenta', 'potencia_contratada',
 ];
 
 const PROMPT = `Analiza esta factura de electricidad de Argentina. El documento puede tener 1 o mas paginas — revisa TODAS las paginas para extraer los datos. Busca estos datos exactos y devuelve SOLO un JSON sin markdown:
@@ -38,7 +38,8 @@ const PROMPT = `Analiza esta factura de electricidad de Argentina. El documento 
   "localidad": ciudad o localidad,
   "provincia": provincia (ej: "Buenos Aires", "CABA", "Cordoba"),
   "periodo": periodo de consumo (ej: "18/12/2025 AL 21/01/2026"),
-  "numero_cuenta": numero de cuenta o suministro
+  "numero_cuenta": numero de cuenta o suministro,
+  "potencia_contratada": numero de kW de potencia contratada/demandada (solo para T2/T3, buscar "Demanda contratada" o "Potencia")
 }
 
 Si no puedes determinar un campo usa null. SOLO devuelve el JSON, sin backticks ni markdown.`;
@@ -201,8 +202,7 @@ export default async function handler(req, res) {
     if (!text) {
       console.error('All AI providers failed. Debug:', debug.join(' | '));
       return res.status(502).json({
-        error: 'No se pudo analizar la factura.',
-        debug: debug.join(' | '),
+        error: 'No se pudo analizar la factura. Intenta con otra foto o usa el modo manual.',
       });
     }
 

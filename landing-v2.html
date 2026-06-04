@@ -1,0 +1,1880 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Navimaq Solar — Energia Solar para tu Hogar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.18/dist/lenis.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/ScrollTrigger.min.js"></script>
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg-warm: #fdfaf5;
+    --bg-soft: #f7f5f0;
+    --bg-muted: #f0ede6;
+    --border: #e8e4dc;
+    --border-light: #f0ede6;
+    --text: #1a1a1a;
+    --text-soft: #444;
+    --text-muted: #888;
+    --text-faint: #bbb;
+    --solar: #e89500;
+    --solar-light: #f5b740;
+    --solar-dim: #c07800;
+    --solar-glow: rgba(232,149,0,0.12);
+    --green: #16a34a;
+    --green-light: #dcfce7;
+    --green-dim: #15803d;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { font-size: 16px; scroll-behavior: auto; }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ======================== */
+  /* CURSOR                   */
+  /* ======================== */
+  .cursor {
+    width: 20px; height: 20px;
+    border: 2px solid var(--solar);
+    border-radius: 50%;
+    position: fixed;
+    pointer-events: none;
+    z-index: 9999;
+    transform: translate(-50%, -50%);
+    mix-blend-mode: multiply;
+    transition: width 0.3s, height 0.3s, background 0.3s;
+  }
+  .cursor.hover {
+    width: 60px; height: 60px;
+    background: var(--solar);
+  }
+
+  /* ======================== */
+  /* NAV                      */
+  /* ======================== */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 48px;
+    transition: background 0.4s, backdrop-filter 0.4s, box-shadow 0.4s;
+  }
+  nav.scrolled {
+    background: rgba(255,255,255,0.85);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: 0 1px 0 var(--border);
+  }
+  .nav-logo {
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+  }
+  .nav-logo img {
+    height: 44px;
+    width: auto;
+  }
+  .nav-links { display: flex; gap: 32px; list-style: none; align-items: center; }
+  .nav-links a {
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.8rem;
+    font-weight: 500;
+    letter-spacing: 1px;
+    transition: color 0.3s;
+  }
+  .nav-links a:hover { color: var(--text); }
+  .nav-cta-btn {
+    padding: 10px 24px;
+    background: var(--text);
+    color: var(--bg);
+    border-radius: 100px;
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: 0.5px;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .nav-cta-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+    color: var(--bg);
+  }
+
+  /* ======================== */
+  /* HERO                     */
+  /* ======================== */
+  .hero {
+    height: 100vh;
+    min-height: 700px;
+    display: flex;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+    background: var(--bg-warm);
+  }
+
+  .hero-sun {
+    position: absolute;
+    top: -15%;
+    right: -5%;
+    width: 700px;
+    height: 700px;
+    background: radial-gradient(circle, rgba(232,149,0,0.06) 0%, rgba(232,149,0,0.02) 40%, transparent 65%);
+    border-radius: 50%;
+    animation: sunPulse 6s ease-in-out infinite;
+  }
+  @keyframes sunPulse {
+    0%, 100% { transform: scale(1); opacity: 0.6; }
+    50% { transform: scale(1.15); opacity: 1; }
+  }
+
+  .hero-grid {
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(rgba(0,0,0,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,0,0,0.02) 1px, transparent 1px);
+    background-size: 80px 80px;
+    mask-image: radial-gradient(ellipse at 60% 50%, black 20%, transparent 70%);
+    -webkit-mask-image: radial-gradient(ellipse at 60% 50%, black 20%, transparent 70%);
+  }
+
+  .hero-content {
+    position: relative;
+    z-index: 1;
+    padding: 0 48px;
+    max-width: 750px;
+  }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 20px;
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-soft);
+    letter-spacing: 1px;
+    margin-bottom: 32px;
+    opacity: 0;
+    background: var(--bg);
+  }
+  .hero-badge .pulse {
+    width: 8px; height: 8px;
+    background: var(--green);
+    border-radius: 50%;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(22,163,74,0.4); }
+    50% { opacity: 0.8; box-shadow: 0 0 0 8px rgba(22,163,74,0); }
+  }
+
+  .hero-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: clamp(3.5rem, 8vw, 6.5rem);
+    font-weight: 700;
+    line-height: 0.95;
+    letter-spacing: -3px;
+    color: var(--text);
+  }
+  .hero-title .line {
+    display: block;
+    overflow: hidden;
+  }
+  .hero-title .line span {
+    display: inline-block;
+    transform: translateY(110%);
+  }
+  .hero-title .solar-word {
+    color: var(--solar);
+  }
+
+  .hero-sub {
+    font-size: 1.15rem;
+    color: var(--text-muted);
+    line-height: 1.7;
+    margin-top: 32px;
+    max-width: 520px;
+    opacity: 0;
+    font-weight: 400;
+  }
+  .hero-sub strong { color: var(--solar-dim); font-weight: 600; }
+
+  .hero-ctas {
+    display: flex;
+    gap: 16px;
+    margin-top: 40px;
+    opacity: 0;
+  }
+  .btn-solar {
+    padding: 18px 40px;
+    background: var(--text);
+    color: var(--bg);
+    border: none;
+    border-radius: 100px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    text-decoration: none;
+  }
+  .btn-solar:hover {
+    transform: scale(1.04);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+  }
+  .btn-outline {
+    padding: 18px 40px;
+    background: transparent;
+    color: var(--text);
+    border: 1.5px solid var(--border);
+    border-radius: 100px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color 0.3s;
+    text-decoration: none;
+  }
+  .btn-outline:hover { border-color: var(--text); }
+
+  .hero-stats {
+    display: flex;
+    gap: 48px;
+    margin-top: 64px;
+    opacity: 0;
+  }
+  .hero-stat-num {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--solar);
+  }
+  .hero-stat-label {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  .scroll-hint {
+    position: absolute;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    opacity: 0;
+  }
+  .scroll-hint span {
+    font-size: 0.6rem;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text-faint);
+  }
+  .scroll-arrow {
+    width: 24px;
+    height: 24px;
+    border-right: 2px solid var(--text-faint);
+    border-bottom: 2px solid var(--text-faint);
+    transform: rotate(45deg);
+    animation: scrollBounce 2s ease-in-out infinite;
+  }
+  @keyframes scrollBounce {
+    0%, 100% { transform: rotate(45deg) translateY(0); }
+    50% { transform: rotate(45deg) translateY(8px); }
+  }
+
+  /* ============================================== */
+  /* SOLAR PANEL — CINEMATIC LIGHT EXPERIENCE       */
+  /* ============================================== */
+  .panel-section {
+    height: 500vh;
+    position: relative;
+  }
+  .panel-sticky {
+    height: 100vh;
+    position: sticky;
+    top: 0;
+    overflow: hidden;
+    perspective: 1200px;
+    background: var(--bg-warm);
+  }
+
+  /* Ambient warm glow — moves with sun */
+  .sun-orb {
+    position: absolute;
+    width: 200px; height: 200px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,200,50,0.15) 0%, rgba(255,180,0,0.05) 40%, transparent 70%);
+    pointer-events: none;
+    z-index: 1;
+    filter: blur(30px);
+  }
+
+  /* Sun beam — subtle light cone */
+  .sun-beam {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0;
+  }
+
+  /* Sky bg — used for subtle warm shift */
+  .sky-bg {
+    position: absolute;
+    inset: 0;
+    transition: background 0.3s;
+    background: transparent;
+  }
+
+  /* Energy particles canvas */
+  .energy-canvas {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+  }
+
+  /* Watt counter HUD */
+  .watt-hud {
+    position: absolute;
+    top: 32px;
+    right: 40px;
+    z-index: 10;
+    text-align: right;
+    opacity: 0;
+  }
+  .watt-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .watt-value {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 3.5rem;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1;
+  }
+  .watt-unit {
+    font-size: 1rem;
+    color: var(--text-muted);
+  }
+  .watt-sub {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+  .savings-counter {
+    margin-top: 12px;
+    padding: 10px 20px;
+    background: var(--green-light);
+    border: 1px solid rgba(22,163,74,0.2);
+    border-radius: 10px;
+    display: inline-block;
+  }
+  .savings-label {
+    font-size: 0.6rem;
+    color: var(--green-dim);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+  .savings-value {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--green);
+  }
+
+  /* Panel info overlay */
+  .panel-info {
+    position: absolute;
+    left: 5%;
+    bottom: 10%;
+    max-width: 400px;
+    z-index: 10;
+    opacity: 0;
+  }
+  .panel-info .section-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--solar);
+    margin-bottom: 12px;
+  }
+  .panel-info h2 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 2.2rem;
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -1px;
+    color: var(--text);
+  }
+  .panel-info h2 .dim { color: var(--text-muted); }
+  .panel-info p {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    line-height: 1.6;
+    margin-top: 12px;
+  }
+
+  /* Spec pills */
+  .panel-specs-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+  }
+  .spec-pill {
+    padding: 8px 16px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .spec-pill .val { color: var(--text); }
+
+  /* 3D Solar Panel */
+  .solar-panel-3d {
+    position: absolute;
+    width: 340px;
+    height: 460px;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    transform-style: preserve-3d;
+    z-index: 2;
+  }
+
+  /* Panel front — photovoltaic cells */
+  .panel-face-front {
+    position: absolute;
+    inset: 0;
+    border-radius: 4px;
+    transform: translateZ(7px);
+    overflow: hidden;
+    background:
+      repeating-linear-gradient(0deg,
+        transparent 0px, transparent 24px,
+        rgba(180,180,190,0.2) 24px, rgba(180,180,190,0.2) 25px
+      ),
+      repeating-linear-gradient(90deg,
+        rgba(0,0,0,0.3) 0px, rgba(0,0,0,0.3) 1px,
+        transparent 1px, transparent 57px
+      ),
+      repeating-linear-gradient(0deg,
+        rgba(0,0,0,0.3) 0px, rgba(0,0,0,0.3) 1px,
+        transparent 1px, transparent 46px
+      ),
+      radial-gradient(ellipse at 25% 25%, #1e4080 0%, transparent 50%),
+      radial-gradient(ellipse at 75% 75%, #162d5a 0%, transparent 50%),
+      linear-gradient(160deg, #133060 0%, #0d2245 30%, #091a38 60%, #0d2245 100%);
+    border: 4px solid #aaa;
+    box-shadow:
+      inset 0 0 0 1px rgba(255,255,255,0.05),
+      inset 0 0 0 6px #888,
+      inset 0 0 0 7px #bbb,
+      0 20px 60px rgba(0,0,0,0.15);
+  }
+
+  /* Charge fill — battery loading effect */
+  .panel-charge {
+    position: absolute;
+    bottom: 11px; left: 11px; right: 11px;
+    height: 0%;
+    transform: translateZ(7.5px);
+    pointer-events: none;
+    border-radius: 0 0 2px 2px;
+    background: linear-gradient(
+      0deg,
+      rgba(232,149,0,0.18) 0%,
+      rgba(255,200,50,0.12) 60%,
+      rgba(255,220,100,0.22) 100%
+    );
+    transition: height 0.08s linear;
+  }
+  /* Glowing edge at the charge front */
+  .panel-charge::after {
+    content: '';
+    position: absolute;
+    top: -2px; left: 0; right: 0;
+    height: 4px;
+    background: linear-gradient(90deg,
+      transparent 0%,
+      rgba(255,200,50,0.6) 20%,
+      rgba(255,220,100,0.8) 50%,
+      rgba(255,200,50,0.6) 80%,
+      transparent 100%
+    );
+    filter: blur(3px);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .panel-charge.active::after {
+    opacity: 1;
+  }
+
+  /* Glass reflection */
+  .panel-glare {
+    position: absolute;
+    inset: 10px;
+    border-radius: 2px;
+    transform: translateZ(8px);
+    pointer-events: none;
+    background: linear-gradient(
+      130deg,
+      transparent 0%, transparent 30%,
+      rgba(135,206,250,0.04) 38%,
+      rgba(200,230,255,0.1) 46%,
+      rgba(255,255,255,0.14) 50%,
+      rgba(200,230,255,0.1) 54%,
+      rgba(135,206,250,0.04) 62%,
+      transparent 70%, transparent 100%
+    );
+  }
+
+  /* Panel back */
+  .panel-face-back {
+    position: absolute;
+    inset: 0;
+    border-radius: 4px;
+    transform: translateZ(-7px) rotateY(180deg);
+    background:
+      repeating-linear-gradient(90deg, rgba(0,0,0,0.03) 0px, transparent 1px, transparent 40px),
+      linear-gradient(180deg, #e0e0e0 0%, #c8c8c8 20%, #b0b0b0 50%, #c8c8c8 80%, #e0e0e0 100%);
+    border: 3px solid #bbb;
+  }
+  .panel-face-back::before {
+    content: '';
+    position: absolute;
+    bottom: 35%; left: 50%;
+    transform: translateX(-50%);
+    width: 70px; height: 45px;
+    background: linear-gradient(180deg, #555 0%, #444 100%);
+    border-radius: 6px;
+    border: 2px solid #777;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+
+  /* Panel edges */
+  .panel-edge {
+    position: absolute;
+    background: linear-gradient(90deg, #999 0%, #bbb 20%, #ddd 45%, #eee 50%, #ddd 55%, #bbb 80%, #999 100%);
+  }
+  .panel-edge-left {
+    width: 14px; height: 430px;
+    left: -7px; top: 15px;
+    transform: rotateY(-90deg);
+    transform-origin: right center;
+  }
+  .panel-edge-right {
+    width: 14px; height: 430px;
+    right: -7px; top: 15px;
+    transform: rotateY(90deg);
+    transform-origin: left center;
+  }
+  .panel-edge-top {
+    width: 310px; height: 14px;
+    top: -7px; left: 15px;
+    transform: rotateX(90deg);
+    transform-origin: center bottom;
+  }
+  .panel-edge-bottom {
+    width: 310px; height: 14px;
+    bottom: -7px; left: 15px;
+    transform: rotateX(-90deg);
+    transform-origin: center top;
+  }
+
+  .panel-shadow {
+    position: absolute;
+    bottom: -60px; left: 50%;
+    transform: translateX(-50%);
+    width: 320px; height: 60px;
+    background: radial-gradient(ellipse, rgba(0,0,0,0.12) 0%, transparent 70%);
+    filter: blur(20px);
+  }
+
+  /* ======================== */
+  /* GROWATT INVERTER         */
+  /* ======================== */
+  .inverter {
+    position: absolute;
+    right: 8%;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 120px;
+    height: 180px;
+    z-index: 5;
+    opacity: 0;
+    transition: opacity 0.4s;
+  }
+  .inverter-body {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(180deg, #f8f8f8 0%, #eee 30%, #e4e4e4 70%, #ddd 100%);
+    border-radius: 10px;
+    border: 1px solid #ccc;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.8);
+    position: relative;
+    overflow: hidden;
+  }
+  /* Top vent grille */
+  .inverter-body::before {
+    content: '';
+    position: absolute;
+    top: 8px; left: 20%; right: 20%;
+    height: 10px;
+    background: repeating-linear-gradient(90deg,
+      #ccc 0px, #ccc 2px, transparent 2px, transparent 5px
+    );
+    border-radius: 2px;
+    opacity: 0.5;
+  }
+  /* OLED display */
+  .inverter-screen {
+    position: absolute;
+    top: 24px; left: 15px; right: 15px;
+    height: 52px;
+    background: #111;
+    border-radius: 4px;
+    border: 1px solid #333;
+    padding: 6px 8px;
+    overflow: hidden;
+  }
+  .inv-screen-label {
+    font-size: 0.4rem;
+    color: #555;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .inv-screen-watts {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #16a34a;
+    line-height: 1;
+    margin-top: 2px;
+  }
+  .inv-screen-bar {
+    position: absolute;
+    bottom: 6px; left: 8px; right: 8px;
+    height: 4px;
+    background: #222;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .inv-screen-bar-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #16a34a, #4ade80);
+    border-radius: 2px;
+    transition: width 0.08s linear;
+  }
+  /* LED indicators */
+  .inverter-leds {
+    position: absolute;
+    top: 86px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+  }
+  .inv-led {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #444;
+    transition: background 0.3s, box-shadow 0.3s;
+  }
+  .inv-led.on {
+    background: #4ade80;
+    box-shadow: 0 0 6px rgba(74,222,128,0.6);
+  }
+  /* Model label */
+  .inverter-model {
+    position: absolute;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.4rem;
+    color: #999;
+    letter-spacing: 1px;
+    white-space: nowrap;
+  }
+  /* Bottom connector strip */
+  .inverter-connectors {
+    position: absolute;
+    bottom: 10px;
+    left: 20%; right: 20%;
+    height: 8px;
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+  }
+  .inv-conn {
+    width: 10px; height: 8px;
+    background: #888;
+    border-radius: 2px;
+    border: 1px solid #777;
+  }
+  /* Cable from panel to inverter */
+  .inverter-cable {
+    position: absolute;
+    left: -40px;
+    top: 50%;
+    width: 40px;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, #999 20%, #999 80%, #aaa);
+    transform: translateY(-50%);
+  }
+  .inverter-cable::before {
+    content: '';
+    position: absolute;
+    right: -2px; top: -3px;
+    width: 8px; height: 9px;
+    background: #888;
+    border-radius: 2px;
+  }
+  /* Energy flow pulse on cable */
+  .cable-pulse {
+    position: absolute;
+    left: 0; top: -1px;
+    width: 12px; height: 5px;
+    background: rgba(74,222,128,0.6);
+    border-radius: 3px;
+    filter: blur(2px);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .cable-pulse.active {
+    opacity: 1;
+    animation: cablePulse 1.2s ease-in-out infinite;
+  }
+  @keyframes cablePulse {
+    0% { left: 0; opacity: 0; }
+    20% { opacity: 1; }
+    80% { opacity: 1; }
+    100% { left: 28px; opacity: 0; }
+  }
+
+  /* Horizon line */
+  .horizon {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 20%;
+    background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.02) 100%);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* Scroll progress bar */
+  .panel-progress {
+    position: absolute;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 200px;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    z-index: 10;
+    overflow: hidden;
+  }
+  .panel-progress-fill {
+    height: 100%;
+    width: 0%;
+    background: var(--solar);
+    border-radius: 2px;
+    transition: width 0.05s;
+  }
+
+  /* Phase labels */
+  .phase-labels {
+    position: absolute;
+    bottom: 42px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 32px;
+    z-index: 10;
+    font-size: 0.6rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-faint);
+  }
+  .phase-labels span.active { color: var(--solar); font-weight: 700; }
+
+  /* ======================== */
+  /* BENEFITS                 */
+  /* ======================== */
+  .benefits {
+    padding: 200px 48px;
+    background: var(--bg);
+  }
+  .benefits-header {
+    max-width: 700px;
+    margin-bottom: 100px;
+  }
+  .section-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--solar);
+    margin-bottom: 20px;
+    display: block;
+  }
+  .section-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: clamp(2.5rem, 5vw, 3.5rem);
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -2px;
+    color: var(--text);
+  }
+  .section-title .dim { color: var(--text-muted); }
+
+  .benefits-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--border);
+  }
+  .benefit-card {
+    background: var(--bg);
+    padding: 48px 36px;
+    position: relative;
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  .benefit-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--solar), transparent);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.6s;
+  }
+  .benefit-card:hover::before { transform: scaleX(1); }
+
+  .benefit-icon {
+    font-size: 2.5rem;
+    margin-bottom: 20px;
+    display: block;
+  }
+  .benefit-num {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 3rem;
+    font-weight: 700;
+    color: var(--solar);
+    line-height: 1;
+  }
+  .benefit-unit {
+    font-size: 1rem;
+    color: var(--solar-dim);
+  }
+  .benefit-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-top: 12px;
+    margin-bottom: 8px;
+    color: var(--text);
+  }
+  .benefit-desc {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    line-height: 1.6;
+  }
+
+  /* ======================== */
+  /* HOW IT WORKS             */
+  /* ======================== */
+  .how-it-works {
+    padding: 160px 48px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-soft);
+  }
+  .hiw-header { max-width: 700px; margin-bottom: 100px; }
+
+  .hiw-steps {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 32px;
+    max-width: 1100px;
+    margin: 0 auto;
+    position: relative;
+  }
+  .hiw-steps::before {
+    content: '';
+    position: absolute;
+    top: 40px;
+    left: 60px; right: 60px;
+    height: 1px;
+    background: var(--border);
+  }
+  .hiw-step {
+    text-align: center;
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  .step-circle {
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    background: var(--bg);
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    margin: 0 auto 20px;
+    position: relative;
+    z-index: 1;
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+  .hiw-step:hover .step-circle {
+    border-color: var(--solar);
+    box-shadow: 0 0 40px var(--solar-glow);
+  }
+  .step-num {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--solar);
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+  }
+  .step-name {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: var(--text);
+  }
+  .step-text {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+
+  /* ======================== */
+  /* SAVINGS CALCULATOR       */
+  /* ======================== */
+  .calc-teaser {
+    padding: 160px 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 80px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  .calc-info { max-width: 420px; }
+  .calc-info h2 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 2.8rem;
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -1px;
+    margin-top: 16px;
+    color: var(--text);
+  }
+  .calc-info h2 .solar-word { color: var(--solar); }
+  .calc-info p {
+    font-size: 0.95rem;
+    color: var(--text-muted);
+    line-height: 1.7;
+    margin-top: 16px;
+  }
+  .calc-info .btn-solar { margin-top: 32px; display: inline-block; }
+
+  .calc-mockup {
+    width: 380px;
+    background: var(--bg-soft);
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    padding: 32px;
+    box-shadow: 0 20px 80px rgba(0,0,0,0.06);
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  .calc-mockup-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text);
+  }
+  .calc-mockup-title span { color: var(--solar); }
+
+  .calc-input-group { margin-bottom: 16px; }
+  .calc-input-label {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    display: block;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 600;
+  }
+  .calc-input-fake {
+    width: 100%;
+    padding: 14px 16px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-size: 0.95rem;
+    font-family: 'Inter', sans-serif;
+  }
+
+  .calc-result {
+    margin-top: 24px;
+    padding: 20px;
+    background: var(--green-light);
+    border: 1px solid rgba(22,163,74,0.15);
+    border-radius: 12px;
+    text-align: center;
+  }
+  .calc-result-label {
+    font-size: 0.65rem;
+    color: var(--green-dim);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    font-weight: 700;
+  }
+  .calc-result-value {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--green);
+    margin-top: 4px;
+  }
+  .calc-result-sub {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+
+  /* ======================== */
+  /* TRUST / STATS BANNER     */
+  /* ======================== */
+  .trust-banner {
+    padding: 100px 48px;
+    display: flex;
+    justify-content: center;
+    gap: 100px;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-soft);
+  }
+  .trust-item { text-align: center; }
+  .trust-num {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: clamp(2.5rem, 5vw, 4rem);
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1;
+  }
+  .trust-label {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-top: 8px;
+  }
+
+  /* ======================== */
+  /* MARQUEE                  */
+  /* ======================== */
+  .marquee-section {
+    padding: 32px 0;
+    overflow: hidden;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+  }
+  .marquee-track {
+    display: flex;
+    gap: 48px;
+    animation: marquee 25s linear infinite;
+    width: max-content;
+  }
+  .marquee-item {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1.2rem;
+    font-weight: 500;
+    white-space: nowrap;
+    color: var(--text-faint);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .marquee-item .dot {
+    width: 6px; height: 6px;
+    background: var(--solar);
+    border-radius: 50%;
+  }
+  @keyframes marquee {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+
+  /* ======================== */
+  /* CTA                      */
+  /* ======================== */
+  .cta {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    background: var(--bg-warm);
+  }
+  .cta-glow {
+    position: absolute;
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(232,149,0,0.06) 0%, transparent 60%);
+    border-radius: 50%;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+  }
+  .cta h2 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: clamp(3rem, 7vw, 6rem);
+    font-weight: 700;
+    line-height: 0.95;
+    letter-spacing: -3px;
+    position: relative;
+    color: var(--text);
+  }
+  .cta h2 .solar-word { color: var(--solar); }
+  .cta p {
+    font-size: 1.1rem;
+    color: var(--text-muted);
+    margin-top: 24px;
+    position: relative;
+  }
+  .cta .btn-solar { margin-top: 40px; position: relative; }
+
+  /* ======================== */
+  /* FOOTER                   */
+  /* ======================== */
+  footer {
+    padding: 40px 48px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--bg);
+  }
+  footer .f-left {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+  footer .f-right { display: flex; gap: 24px; }
+  footer .f-right a {
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.8rem;
+    transition: color 0.3s;
+  }
+  footer .f-right a:hover { color: var(--solar); }
+
+  /* ======================== */
+  /* RESPONSIVE               */
+  /* ======================== */
+  @media (max-width: 768px) {
+    nav { padding: 16px 20px; }
+    .nav-links { display: none; }
+    .hero-content { padding: 0 20px; }
+    .hero-stats { gap: 24px; }
+    .panel-info { position: relative; left: 0; padding: 0 20px; text-align: center; }
+    .panel-sticky { flex-direction: column; gap: 32px; }
+    .solar-panel-3d { width: 220px; height: 300px; }
+    .benefits { padding: 100px 20px; }
+    .benefits-grid { grid-template-columns: 1fr; }
+    .how-it-works { padding: 100px 20px; }
+    .hiw-steps { grid-template-columns: 1fr 1fr; }
+    .hiw-steps::before { display: none; }
+    .calc-teaser { flex-direction: column; padding: 80px 20px; gap: 40px; }
+    .trust-banner { flex-direction: column; gap: 40px; padding: 60px 20px; }
+    .cta { padding: 0 20px; }
+    footer { flex-direction: column; gap: 16px; text-align: center; }
+    .cursor { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="cursor"></div>
+
+<!-- Nav -->
+<nav id="mainNav">
+  <a href="/" class="nav-logo"><img src="/img/navimaq-logo-nq.png" alt="Navimaq Solar"></a>
+  <ul class="nav-links">
+    <li><a href="#panel">Tecnologia</a></li>
+    <li><a href="#benefits">Beneficios</a></li>
+    <li><a href="#process">Proceso</a></li>
+    <li><a href="/calc.html" class="nav-cta-btn">Calcula tu ahorro</a></li>
+  </ul>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="hero-sun"></div>
+  <div class="hero-grid"></div>
+  <div class="hero-content">
+    <div class="hero-badge">
+      <span class="pulse"></span>
+      150+ sistemas instalados en Argentina
+    </div>
+    <h1 class="hero-title">
+      <span class="line"><span>Tu techo</span></span>
+      <span class="line"><span>genera</span></span>
+      <span class="line"><span class="solar-word">energia.</span></span>
+    </h1>
+    <p class="hero-sub">
+      Paneles solares, termotanques y sistemas completos. Ahorra hasta <strong>90% en tu factura de luz</strong> con Ley 27.424 de generacion distribuida.
+    </p>
+    <div class="hero-ctas">
+      <a href="/calc.html" class="btn-solar">Calcula tu ahorro</a>
+      <a href="#panel" class="btn-outline">Ver tecnologia</a>
+    </div>
+    <div class="hero-stats">
+      <div class="hero-stat">
+        <div class="hero-stat-num" data-target="150">0</div>
+        <div class="hero-stat-label">Instalaciones</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-num" data-target="24">0</div>
+        <div class="hero-stat-label">Provincias</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-num" data-target="90">0</div>
+        <div class="hero-stat-label">% Ahorro max</div>
+      </div>
+    </div>
+  </div>
+  <div class="scroll-hint">
+    <span>Scroll</span>
+    <div class="scroll-arrow"></div>
+  </div>
+</section>
+
+<!-- Marquee -->
+<div class="marquee-section">
+  <div class="marquee-track">
+    <span class="marquee-item"><span class="dot"></span>Paneles Monocristalinos</span>
+    <span class="marquee-item"><span class="dot"></span>Inversores Growatt</span>
+    <span class="marquee-item"><span class="dot"></span>Termotanques Solares</span>
+    <span class="marquee-item"><span class="dot"></span>Ley 27.424</span>
+    <span class="marquee-item"><span class="dot"></span>On-Grid</span>
+    <span class="marquee-item"><span class="dot"></span>Off-Grid</span>
+    <span class="marquee-item"><span class="dot"></span>Hibridos</span>
+    <span class="marquee-item"><span class="dot"></span>Baterias Litio</span>
+    <span class="marquee-item"><span class="dot"></span>Paneles Monocristalinos</span>
+    <span class="marquee-item"><span class="dot"></span>Inversores Growatt</span>
+    <span class="marquee-item"><span class="dot"></span>Termotanques Solares</span>
+    <span class="marquee-item"><span class="dot"></span>Ley 27.424</span>
+    <span class="marquee-item"><span class="dot"></span>On-Grid</span>
+    <span class="marquee-item"><span class="dot"></span>Off-Grid</span>
+    <span class="marquee-item"><span class="dot"></span>Hibridos</span>
+    <span class="marquee-item"><span class="dot"></span>Baterias Litio</span>
+  </div>
+</div>
+
+<!-- 3D Solar Panel Section -->
+<section class="panel-section" id="panel">
+  <div class="panel-sticky">
+    <div class="sky-bg" id="skyBg"></div>
+    <div class="sun-orb" id="sunOrb"></div>
+    <svg class="sun-beam" id="sunBeam" viewBox="0 0 1000 600" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="beamGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="rgba(255,200,50,0.08)"/>
+          <stop offset="100%" stop-color="rgba(255,200,50,0)"/>
+        </linearGradient>
+      </defs>
+      <polygon id="beamPoly" points="480,80 520,80 650,450 350,450" fill="url(#beamGrad)" opacity="0.5"/>
+    </svg>
+    <canvas class="energy-canvas" id="energyCanvas"></canvas>
+    <div class="horizon"></div>
+
+    <!-- Watt HUD -->
+    <div class="watt-hud" id="wattHud">
+      <div class="watt-label">Generando ahora</div>
+      <div class="watt-value"><span id="wattNum">0</span> <span class="watt-unit">W</span></div>
+      <div class="watt-sub" id="wattSub">Esperando sol...</div>
+      <div class="savings-counter">
+        <div class="savings-label">Ahorro estimado / ano</div>
+        <div class="savings-value">$<span id="savingsNum">0</span></div>
+      </div>
+    </div>
+
+    <!-- Panel info -->
+    <div class="panel-info" id="panelInfo">
+      <div class="section-label" id="panelLabel">Tecnologia TIER 1</div>
+      <h2 id="panelTitle">Paneles<br><span class="dim">monocristalinos</span></h2>
+      <p id="panelDesc">Celdas de silicio de alta pureza con 21.5% de eficiencia.</p>
+      <div class="panel-specs-row" id="panelSpecs">
+        <span class="spec-pill"><span class="val">550W</span> Potencia</span>
+        <span class="spec-pill"><span class="val">21.5%</span> Eficiencia</span>
+        <span class="spec-pill"><span class="val">25 anos</span> Garantia</span>
+      </div>
+    </div>
+
+    <!-- 3D Solar Panel -->
+    <div class="solar-panel-3d" id="solarPanel">
+      <div class="panel-face-front"></div>
+      <div class="panel-charge" id="panelCharge"></div>
+      <div class="panel-glare" id="panelGlare"></div>
+      <div class="panel-face-back"></div>
+      <div class="panel-edge panel-edge-left"></div>
+      <div class="panel-edge panel-edge-right"></div>
+      <div class="panel-edge panel-edge-top"></div>
+      <div class="panel-edge panel-edge-bottom"></div>
+      <div class="panel-shadow" id="panelShadow"></div>
+    </div>
+
+    <!-- Inverter -->
+    <div class="inverter" id="inverter">
+      <div class="inverter-body">
+        <div class="inverter-screen">
+          <div class="inv-screen-label">Output</div>
+          <div class="inv-screen-watts" id="invWatts">0 W</div>
+          <div class="inv-screen-bar"><div class="inv-screen-bar-fill" id="invBarFill"></div></div>
+        </div>
+        <div class="inverter-leds">
+          <div class="inv-led" id="led0"></div>
+          <div class="inv-led" id="led1"></div>
+          <div class="inv-led" id="led2"></div>
+        </div>
+        <div class="inverter-model">Inversor hibrido</div>
+        <div class="inverter-connectors">
+          <div class="inv-conn"></div>
+          <div class="inv-conn"></div>
+        </div>
+      </div>
+      <div class="inverter-cable">
+        <div class="cable-pulse" id="cablePulse"></div>
+      </div>
+    </div>
+
+    <!-- Progress -->
+    <div class="panel-progress"><div class="panel-progress-fill" id="progressFill"></div></div>
+    <div class="phase-labels">
+      <span id="ph0" class="active">Amanecer</span>
+      <span id="ph1">Generando</span>
+      <span id="ph2">Maximo</span>
+      <span id="ph3">Ahorro</span>
+    </div>
+  </div>
+</section>
+
+<!-- Benefits -->
+<section class="benefits" id="benefits">
+  <div class="benefits-header">
+    <span class="section-label">Por que solar</span>
+    <h2 class="section-title">Tu factura de luz<br><span class="dim">nunca va a ser igual.</span></h2>
+  </div>
+  <div class="benefits-grid">
+    <div class="benefit-card">
+      <span class="benefit-icon">⚡</span>
+      <div class="benefit-num">90<span class="benefit-unit">%</span></div>
+      <h3 class="benefit-title">Ahorro en factura</h3>
+      <p class="benefit-desc">Reduce tu consumo de red con generacion propia. Inyecta el excedente y obtene credito.</p>
+    </div>
+    <div class="benefit-card">
+      <span class="benefit-icon">🛡️</span>
+      <div class="benefit-num">25<span class="benefit-unit">anos</span></div>
+      <h3 class="benefit-title">Garantia de rendimiento</h3>
+      <p class="benefit-desc">Paneles tier 1 con 25 anos de garantia de rendimiento al 80% de potencia nominal.</p>
+    </div>
+    <div class="benefit-card">
+      <span class="benefit-icon">📈</span>
+      <div class="benefit-num">3.8<span class="benefit-unit">anos</span></div>
+      <h3 class="benefit-title">Retorno de inversion</h3>
+      <p class="benefit-desc">Con los aumentos de tarifas, el sistema se paga solo en menos de 4 anos.</p>
+    </div>
+    <div class="benefit-card">
+      <span class="benefit-icon">🌍</span>
+      <div class="benefit-num">4.5<span class="benefit-unit">ton</span></div>
+      <h3 class="benefit-title">CO2 evitado / ano</h3>
+      <p class="benefit-desc">Cada sistema residencial evita 4.5 toneladas anuales de emisiones de carbono.</p>
+    </div>
+    <div class="benefit-card">
+      <span class="benefit-icon">📡</span>
+      <div class="benefit-num">24/7</div>
+      <h3 class="benefit-title">Monitoreo remoto</h3>
+      <p class="benefit-desc">App de Growatt con datos en tiempo real. Controlá tu generacion desde el celular.</p>
+    </div>
+    <div class="benefit-card">
+      <span class="benefit-icon">🔧</span>
+      <div class="benefit-num">0<span class="benefit-unit">costo</span></div>
+      <h3 class="benefit-title">Mantenimiento</h3>
+      <p class="benefit-desc">Sin partes moviles, sin mantenimiento. Solo una limpieza anual recomendada.</p>
+    </div>
+  </div>
+</section>
+
+<!-- How It Works -->
+<section class="how-it-works" id="process">
+  <div class="hiw-header">
+    <span class="section-label">Proceso</span>
+    <h2 class="section-title">De la consulta<br><span class="dim">a generar tu energia.</span></h2>
+  </div>
+  <div class="hiw-steps">
+    <div class="hiw-step">
+      <div class="step-circle">📋</div>
+      <div class="step-num">01</div>
+      <div class="step-name">Consulta</div>
+      <p class="step-text">Analizamos tu factura y consumo. Dimensionamos el sistema ideal.</p>
+    </div>
+    <div class="hiw-step">
+      <div class="step-circle">📐</div>
+      <div class="step-num">02</div>
+      <div class="step-name">Proyecto</div>
+      <p class="step-text">Diseno tecnico, tramites municipales y habilitacion con ENRE.</p>
+    </div>
+    <div class="hiw-step">
+      <div class="step-circle">🔧</div>
+      <div class="step-num">03</div>
+      <div class="step-name">Instalacion</div>
+      <p class="step-text">Equipo propio certificado. 1-2 dias de instalacion completa.</p>
+    </div>
+    <div class="hiw-step">
+      <div class="step-circle">☀️</div>
+      <div class="step-num">04</div>
+      <div class="step-name">Generacion</div>
+      <p class="step-text">Medidor bidireccional, inyeccion a red y ahorro desde el dia uno.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Savings Calculator Teaser -->
+<section class="calc-teaser">
+  <div class="calc-info">
+    <span class="section-label">Calculadora</span>
+    <h2>Calcula tu<br><span class="solar-word">ahorro real.</span></h2>
+    <p>Ingresa tu factura de luz y te mostramos cuanto podes ahorrar con un sistema solar dimensionado para tu consumo.</p>
+    <a href="/calc.html" class="btn-solar">Calcula tu ahorro gratis</a>
+  </div>
+  <div class="calc-mockup">
+    <div class="calc-mockup-title"><span>☀️</span> Calculadora Solar</div>
+    <div class="calc-input-group">
+      <label class="calc-input-label">Tu factura mensual</label>
+      <div class="calc-input-fake">$ 45.000</div>
+    </div>
+    <div class="calc-input-group">
+      <label class="calc-input-label">Provincia</label>
+      <div class="calc-input-fake">Buenos Aires</div>
+    </div>
+    <div class="calc-result">
+      <div class="calc-result-label">Ahorro estimado anual</div>
+      <div class="calc-result-value">$486.000</div>
+      <div class="calc-result-sub">Retorno de inversion en 3.8 anos</div>
+    </div>
+  </div>
+</section>
+
+<!-- Trust -->
+<div class="trust-banner">
+  <div class="trust-item">
+    <div class="trust-num" data-count="150">0</div>
+    <div class="trust-label">Sistemas instalados</div>
+  </div>
+  <div class="trust-item">
+    <div class="trust-num" data-count="850">0</div>
+    <div class="trust-label">kW capacidad total</div>
+  </div>
+  <div class="trust-item">
+    <div class="trust-num" data-count="24">0</div>
+    <div class="trust-label">Provincias</div>
+  </div>
+  <div class="trust-item">
+    <div class="trust-num" data-count="4">0+</div>
+    <div class="trust-label">Anos en el mercado</div>
+  </div>
+</div>
+
+<!-- CTA -->
+<section class="cta">
+  <div class="cta-glow"></div>
+  <h2>Tu techo<br>ya tiene <span class="solar-word">sol.</span></h2>
+  <p>Solo falta que lo aproveches.</p>
+  <a href="/calc.html" class="btn-solar">Calcula tu ahorro gratis</a>
+</section>
+
+<!-- Footer -->
+<footer>
+  <div class="f-left">&copy; 2026 Navimaq Solar. Argentina.</div>
+  <div class="f-right">
+    <a href="https://wa.me/5491100000000">WhatsApp</a>
+    <a href="mailto:info@navimaq.com">Email</a>
+    <a href="#">Instagram</a>
+  </div>
+</footer>
+
+<script>
+// =====================
+// LENIS
+// =====================
+const lenis = new Lenis({ duration: 1.2, smoothWheel: true });
+function raf(time) { lenis.raf(time); requestAnimationFrame(raf); }
+requestAnimationFrame(raf);
+lenis.on('scroll', ScrollTrigger.update);
+gsap.ticker.add((time) => lenis.raf(time * 1000));
+gsap.ticker.lagSmoothing(0);
+
+// =====================
+// CURSOR
+// =====================
+const cursor = document.querySelector('.cursor');
+let mx=0,my=0,cx=0,cy=0;
+document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY});
+function uCur(){cx+=(mx-cx)*0.15;cy+=(my-cy)*0.15;cursor.style.left=cx+'px';cursor.style.top=cy+'px';requestAnimationFrame(uCur)}
+uCur();
+document.querySelectorAll('a,button,.benefit-card,.hiw-step').forEach(el=>{
+  el.addEventListener('mouseenter',()=>cursor.classList.add('hover'));
+  el.addEventListener('mouseleave',()=>cursor.classList.remove('hover'));
+});
+
+// =====================
+// NAV SCROLL
+// =====================
+window.addEventListener('scroll',()=>{
+  document.getElementById('mainNav').classList.toggle('scrolled', window.scrollY > 80);
+});
+
+// =====================
+// HERO
+// =====================
+const heroTl = gsap.timeline({ delay: 0.2 });
+heroTl
+  .to('.hero-title .line span', { y: 0, duration: 1.2, ease:'power4.out', stagger:0.08 })
+  .to('.hero-badge', { opacity:1, duration:0.6 }, '-=0.5')
+  .to('.hero-sub', { opacity:1, duration:0.6 }, '-=0.3')
+  .to('.hero-ctas', { opacity:1, duration:0.6 }, '-=0.2')
+  .to('.hero-stats', { opacity:1, duration:0.6 }, '-=0.2')
+  .to('.scroll-hint', { opacity:1, duration:0.6 }, '-=0.1');
+
+// Hero stat counters
+document.querySelectorAll('.hero-stat-num').forEach(el=>{
+  const t=parseInt(el.dataset.target);
+  gsap.to({v:0},{v:t,duration:2,delay:1,ease:'power2.out',onUpdate:function(){
+    el.textContent=Math.round(this.targets()[0].v);
+    if(t===90)el.textContent+='%';
+    if(t===24)el.textContent+=' ';
+  }});
+});
+
+// Hero parallax
+gsap.to('.hero-content',{scrollTrigger:{trigger:'.hero',start:'top top',end:'bottom top',scrub:1},y:-80,opacity:0});
+
+// =====================================================
+// 3D SOLAR PANEL — SMOOTH SCROLL EXPERIENCE
+// Sun moves evenly with panel, HUD ticks up
+// =====================================================
+const panel = document.getElementById('solarPanel');
+const sunOrb = document.getElementById('sunOrb');
+const sunBeam = document.getElementById('sunBeam');
+const beamPoly = document.getElementById('beamPoly');
+const energyCanvas = document.getElementById('energyCanvas');
+const ectx = energyCanvas.getContext('2d');
+const wattHud = document.getElementById('wattHud');
+const wattNum = document.getElementById('wattNum');
+const wattSub = document.getElementById('wattSub');
+const savingsNum = document.getElementById('savingsNum');
+const panelInfo = document.getElementById('panelInfo');
+const panelGlare = document.getElementById('panelGlare');
+const panelShadow = document.getElementById('panelShadow');
+const panelCharge = document.getElementById('panelCharge');
+const progressFill = document.getElementById('progressFill');
+const inverterEl = document.getElementById('inverter');
+const invWatts = document.getElementById('invWatts');
+const invBarFill = document.getElementById('invBarFill');
+const invLeds = [document.getElementById('led0'), document.getElementById('led1'), document.getElementById('led2')];
+const cablePulse = document.getElementById('cablePulse');
+const phaseEls = [document.getElementById('ph0'), document.getElementById('ph1'), document.getElementById('ph2'), document.getElementById('ph3')];
+
+// Canvas sizing
+function resizeCanvas() {
+  energyCanvas.width = energyCanvas.offsetWidth;
+  energyCanvas.height = energyCanvas.offsetHeight;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+// Golden energy particles
+const particles = [];
+const MAX_P = 40;
+
+function spawnParticle(sx, sy, tx, ty, intensity) {
+  if (particles.length >= MAX_P) return;
+  particles.push({
+    sx, sy,
+    tx: tx + (Math.random() - 0.5) * 60,
+    ty: ty + (Math.random() - 0.5) * 40,
+    t: 0,
+    speed: 0.012 + Math.random() * 0.008,
+    size: 1 + Math.random() * 2,
+    alpha: 0.2 + Math.random() * 0.3 * intensity
+  });
+}
+
+function drawParticles() {
+  ectx.clearRect(0, 0, energyCanvas.width, energyCanvas.height);
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.t += p.speed;
+    if (p.t >= 1) { particles.splice(i, 1); continue; }
+    const t = p.t;
+    // Smooth bezier-like path
+    const ease = t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
+    const x = p.sx + (p.tx - p.sx) * ease;
+    const y = p.sy + (p.ty - p.sy) * ease - Math.sin(t * Math.PI) * 40;
+    const fadeIn = Math.min(t * 6, 1);
+    const fadeOut = Math.min((1 - t) * 6, 1);
+    const alpha = p.alpha * fadeIn * fadeOut;
+    // Soft glow
+    ectx.beginPath();
+    ectx.arc(x, y, p.size + 3, 0, Math.PI * 2);
+    ectx.fillStyle = `rgba(232,149,0,${alpha * 0.15})`;
+    ectx.fill();
+    // Core
+    ectx.beginPath();
+    ectx.arc(x, y, p.size, 0, Math.PI * 2);
+    ectx.fillStyle = `rgba(255,200,50,${alpha})`;
+    ectx.fill();
+  }
+}
+
+(function particleLoop() {
+  drawParticles();
+  requestAnimationFrame(particleLoop);
+})();
+
+function lerp(a, b, t) { return a + (b - a) * t; }
+
+// Phase data
+const phases = [
+  { range: [0, 0.2], watt: 0, savings: 0, sub: 'Esperando sol...',
+    title: 'Paneles<br><span class="dim">monocristalinos</span>', desc: 'Celdas de silicio de alta pureza con 21.5% de eficiencia. Garantia de rendimiento 25 anos.' },
+  { range: [0.2, 0.4], watt: 200, savings: 160000, sub: 'Primeros rayos captados',
+    title: 'Generacion<br><span class="dim">distribuida</span>', desc: 'El panel capta los primeros fotones. La conversion comienza — cada minuto suma kilovatios a tu favor.' },
+  { range: [0.4, 0.65], watt: 420, savings: 340000, sub: 'Produccion nominal',
+    title: 'Inversores<br><span class="dim">Growatt hibridos</span>', desc: 'Conversion DC a AC con 98.4% de eficiencia. Monitoreo WiFi en tiempo real. Compatible con baterias de litio.' },
+  { range: [0.65, 0.85], watt: 520, savings: 420000, sub: 'Potencia maxima',
+    title: 'Sistema<br><span class="dim">completo instalado</span>', desc: 'Panel + inversor + estructura + cableado + protecciones + tramites. Llave en mano con garantia.' },
+  { range: [0.85, 1.0], watt: 550, savings: 486000, sub: 'Ahorro maximo — 550W',
+    title: 'Tu ahorro<br><span class="dim">desde el dia uno</span>', desc: 'Retorno de inversion en 3.8 anos. 25 anos de ahorro garantizado. Ley 27.424 permite inyectar a la red.' }
+];
+
+function getPhaseAt(p) {
+  for (const ph of phases) {
+    if (p >= ph.range[0] && p < ph.range[1]) return ph;
+  }
+  return phases[phases.length - 1];
+}
+
+let lastPhaseIdx = -1;
+
+ScrollTrigger.create({
+  trigger: '.panel-section',
+  start: 'top top',
+  end: 'bottom bottom',
+  scrub: 0.3,
+  onUpdate: (self) => {
+    const p = self.progress;
+    const ph = getPhaseAt(p);
+    const phIdx = phases.indexOf(ph);
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const panelCX = w * 0.5;
+    const panelCY = h * 0.5;
+
+    // 1. SUN — rises and stays high, never goes back down
+    const sunX = lerp(w * 0.15, w * 0.75, p);
+    const sunArc = Math.min(p * 1.8, 1); // 0 → 1, reaches max at ~55% scroll, stays
+    const sunY = lerp(h * 0.85, h * 0.1, sunArc);
+    sunOrb.style.left = (sunX - 100) + 'px';
+    sunOrb.style.top = (sunY - 100) + 'px';
+    sunOrb.style.opacity = 0.15 + sunArc * 0.6;
+
+    // 2. SUBTLE WARM BACKGROUND — warmer as sun is higher
+    const warmth = Math.round(sunArc * 15);
+    document.getElementById('skyBg').style.background =
+      `linear-gradient(180deg, rgba(255,240,210,${sunArc * 0.06}) 0%, rgba(255,220,160,${sunArc * 0.04}) 100%)`;
+
+    // 3. LIGHT BEAM — subtle cone from sun to panel
+    const svgSX = 1000 / w; const svgSY = 600 / h;
+    const bsx = sunX * svgSX;
+    const bsy = sunY * svgSY;
+    const bpx = panelCX * svgSX;
+    const bpy = panelCY * svgSY;
+    const bw = (30 + sunArc * 60) * svgSX;
+    beamPoly.setAttribute('points',
+      `${bsx - 10},${bsy} ${bsx + 10},${bsy} ${bpx + bw},${bpy + 60} ${bpx - bw},${bpy + 60}`
+    );
+    sunBeam.style.opacity = sunArc * 0.35;
+
+    // 4. PANEL ROTATION — follows sun position smoothly
+    const panelRotY = (sunX - panelCX) / w * 35;  // +-17.5 deg range
+    const panelRotX = (panelCY - sunY) / h * 15;  // tilts toward sun vertically
+    panel.style.transform = `translate(-50%, -50%) rotateY(${panelRotY}deg) rotateX(${panelRotX}deg)`;
+
+    // 5. GLARE — follows sun angle
+    const glareAngle = Math.atan2(sunY - panelCY, sunX - panelCX) * (180 / Math.PI);
+    const gi = sunArc; // glare intensity
+    panelGlare.style.background = `linear-gradient(${glareAngle + 90}deg,
+      transparent 0%, transparent 28%,
+      rgba(135,206,250,${0.02 + gi * 0.04}) 36%,
+      rgba(200,230,255,${0.04 + gi * 0.08}) 44%,
+      rgba(255,255,255,${0.05 + gi * 0.12}) 50%,
+      rgba(200,230,255,${0.04 + gi * 0.08}) 56%,
+      rgba(135,206,250,${0.02 + gi * 0.04}) 64%,
+      transparent 72%, transparent 100%)`;
+
+    // 6. SHADOW — shifts opposite to sun
+    const shadowShift = -(sunX - panelCX) * 0.12;
+    panelShadow.style.transform = `translateX(calc(-50% + ${shadowShift}px))`;
+    panelShadow.style.opacity = 0.05 + sunArc * 0.15;
+
+    // 7. WATT + SAVINGS
+    const prevPh = phases[Math.max(0, phIdx - 1)];
+    const localT = Math.min(1, Math.max(0, (p - ph.range[0]) / (ph.range[1] - ph.range[0])));
+    const currentWatt = Math.round(lerp(prevPh.watt, ph.watt, localT));
+    const currentSavings = Math.round(lerp(prevPh.savings, ph.savings, localT));
+    wattNum.textContent = currentWatt;
+    wattSub.textContent = ph.sub;
+    savingsNum.textContent = currentSavings.toLocaleString('es-AR');
+
+    // 8. HUD + INFO fade in
+    const fadeIn = Math.min(p * 8, 1);
+    wattHud.style.opacity = fadeIn;
+    panelInfo.style.opacity = fadeIn;
+
+    // 9. PHASE LABELS
+    const activePhase = Math.min(3, Math.floor(p * 4));
+    phaseEls.forEach((el, i) => el.classList.toggle('active', i === activePhase));
+
+    // 10. PANEL INFO TEXT
+    if (phIdx !== lastPhaseIdx) {
+      lastPhaseIdx = phIdx;
+      document.getElementById('panelTitle').innerHTML = ph.title;
+      document.getElementById('panelDesc').textContent = ph.desc;
+    }
+
+    // 11. PROGRESS BAR
+    progressFill.style.width = (p * 100) + '%';
+
+    // 12. CHARGE FILL — battery loading effect
+    const chargePercent = Math.min(p * 1.15, 1) * 100; // fills slightly ahead so it's full at ~87%
+    panelCharge.style.height = chargePercent + '%';
+    panelCharge.classList.toggle('active', p > 0.05 && p < 0.92);
+
+    // 13. INVERTER — charges with the panel
+    const invActive = p > 0.1;
+    inverterEl.style.opacity = invActive ? Math.min((p - 0.1) * 6, 1) : 0;
+    invWatts.textContent = currentWatt + ' W';
+    invBarFill.style.width = (chargePercent) + '%';
+    // LEDs light up progressively
+    invLeds[0].classList.toggle('on', p > 0.12);
+    invLeds[1].classList.toggle('on', p > 0.35);
+    invLeds[2].classList.toggle('on', p > 0.6);
+    // Cable energy pulse
+    cablePulse.classList.toggle('active', p > 0.15 && p < 0.92);
+
+    // 14. PARTICLES — only when sun is up
+    if (sunArc > 0.15 && Math.random() < sunArc * 0.25) {
+      spawnParticle(sunX, sunY, panelCX, panelCY, sunArc);
+    }
+  }
+});
+
+// =====================
+// BENEFITS
+// =====================
+gsap.utils.toArray('.benefit-card').forEach(card=>{
+  gsap.to(card,{scrollTrigger:{trigger:card,start:'top 85%',end:'top 60%',scrub:1},opacity:1,y:0});
+});
+
+// =====================
+// HOW IT WORKS
+// =====================
+gsap.utils.toArray('.hiw-step').forEach((step,i)=>{
+  gsap.to(step,{scrollTrigger:{trigger:step,start:'top 85%'},opacity:1,y:0,duration:0.8,delay:i*0.15,ease:'power2.out'});
+});
+
+// =====================
+// CALC MOCKUP
+// =====================
+gsap.to('.calc-mockup',{scrollTrigger:{trigger:'.calc-teaser',start:'top 60%'},opacity:1,y:0,duration:1,ease:'power3.out'});
+
+// =====================
+// TRUST COUNTERS
+// =====================
+document.querySelectorAll('.trust-num').forEach(el=>{
+  const t=parseInt(el.dataset.count);
+  const suffix=el.textContent.replace(/[0-9]/g,'');
+  ScrollTrigger.create({
+    trigger:el, start:'top 80%', once:true,
+    onEnter:()=>{
+      gsap.to({v:0},{v:t,duration:2,ease:'power2.out',onUpdate:function(){
+        el.textContent=Math.round(this.targets()[0].v)+suffix;
+      }});
+    }
+  });
+});
+
+// =====================
+// CTA
+// =====================
+gsap.from('.cta h2',{scrollTrigger:{trigger:'.cta',start:'top 70%'},y:60,opacity:0,duration:1,ease:'power4.out'});
+gsap.from('.cta p',{scrollTrigger:{trigger:'.cta',start:'top 60%'},y:30,opacity:0,duration:0.8});
+gsap.from('.cta .btn-solar',{scrollTrigger:{trigger:'.cta',start:'top 50%'},y:30,opacity:0,duration:0.8});
+</script>
+
+</body>
+</html>

@@ -22,6 +22,9 @@ function calculateSolar(params) {
   const {
     provinceId, monthlyKwh, tariffId,
     systemType = 'ongrid',
+    phaseType = 'mono',
+    roofType = 'chapa',
+    maxPowerKw = 10,
     numPanelsOverride = null,
     autonomyDays = systemType === 'offgrid' ? 3 : 2,
     batteryType = 'litio',
@@ -75,16 +78,28 @@ function calculateSolar(params) {
     }
   }
 
-  const numPanels = numPanelsOverride || recommendedPanels;
-  const actualSystemKwp = numPanels * panelWp;
+  let numPanels = numPanelsOverride || recommendedPanels;
+  let actualSystemKwp = numPanels * panelWp;
+
+  // Power limit check
+  let powerLimitWarning = null;
+  if (actualSystemKwp > maxPowerKw) {
+    powerLimitWarning = `Sistema limitado de ${actualSystemKwp.toFixed(1)} kWp a ${maxPowerKw} kWp por límite de potencia configurado`;
+    actualSystemKwp = maxPowerKw;
+    numPanels = Math.floor(maxPowerKw / panelWp);
+  }
 
   // 5. Seleccionar inversor según tipo
   const inverterCategory = systemType === 'offgrid' ? 'inversor-offgrid'
     : systemType === 'hybrid' ? 'inversor-hibrido' : 'inversor';
 
-  let inverters = products.filter(p => p.category === inverterCategory && p.watts).sort((a, b) => a.watts - b.watts);
+  let inverters = products.filter(p => p.category === inverterCategory && p.watts)
+    .filter(p => !p.phase || p.phase === phaseType)
+    .sort((a, b) => a.watts - b.watts);
   if (inverters.length === 0) {
-    inverters = products.filter(p => (p.category === 'inversor' || p.category === 'inversor-offgrid' || p.category === 'inversor-hibrido') && p.watts).sort((a, b) => a.watts - b.watts);
+    inverters = products.filter(p => (p.category === 'inversor' || p.category === 'inversor-offgrid' || p.category === 'inversor-hibrido') && p.watts)
+      .filter(p => !p.phase || p.phase === phaseType)
+      .sort((a, b) => a.watts - b.watts);
   }
 
   const systemWatts = actualSystemKwp * 1000;
@@ -115,25 +130,15 @@ function calculateSolar(params) {
   let batteryCostARS = 0;
 
   if (systemType !== 'ongrid') {
-    const dailyLoad = systemType === 'hybrid' ? dailyKwh * (essentialLoadPct / 100) : dailyKwh;
-    // Bug 2 fix: NO dividir por bat.efficiency (ya incluido en sys.efficiency)
-    batteryKwh = (dailyLoad * autonomyDays) / bat.dod;
-
-    // Bug 1 fix: Filtrar por capacityKwh en vez de watts
-    // Seleccionar la batería que minimiza el costo total para la capacidad requerida
+    // Battery must cover inverter nominal power
+    const inverterWatts = selectedInverters.reduce((sum, i) => sum + i.product.watts * i.qty, 0);
     const batteries = products.filter(p => p.category === 'bateria' && p.capacityKwh);
     if (batteries.length > 0) {
-      let bestCost = Infinity;
-      for (const bat of batteries) {
-        const count = Math.ceil(batteryKwh / bat.capacityKwh);
-        const cost = count * calcFinalPriceARS(bat);
-        if (cost < bestCost) {
-          bestCost = cost;
-          selectedBattery = bat;
-          batteryCount = count;
-          batteryCostARS = cost;
-        }
-      }
+      selectedBattery = batteries[0]; // Use the standard battery
+      const maxDischargeW = selectedBattery.maxDischargeW || 5000;
+      batteryCount = Math.ceil(inverterWatts / maxDischargeW);
+      batteryKwh = batteryCount * selectedBattery.capacityKwh;
+      batteryCostARS = batteryCount * calcFinalPriceARS(selectedBattery);
     }
   }
 
@@ -157,52 +162,66 @@ function calculateSolar(params) {
       }
     }
   } else {
-    structureCostARS = panelCostARS * cfg.structurePercent;
+    const structureProduct = products.find(p => p.category === 'estructura' && p.roofType === roofType);
+    if (structureProduct) {
+      const kitsNeeded = Math.ceil(numPanels / (structureProduct.panelsPerKit || 4));
+      structureCostARS = kitsNeeded * calcFinalPriceARS(structureProduct);
+      structureDetail = [{ name: structureProduct.name, qty: kitsNeeded, unitARS: calcFinalPriceARS(structureProduct), totalARS: structureCostARS }];
+    } else {
+      structureCostARS = panelCostARS * cfg.structurePercent;
+    }
   }
   const equipmentCostARS = panelCostARS + inverterCostARS + structureCostARS + batteryCostARS;
   const installMultiplier = (cfg.installMultipliers && cfg.installMultipliers[systemType]) || 1.0;
   const installCostARS = (cfg.installBaseUSD + numPanels * cfg.installPerPanelUSD) * cfg.dollarRate * installMultiplier;
   const totalCostARS = equipmentCostARS + installCostARS;
 
-  // 8. Generación y ahorro
+  // 8. Generación y ahorro — Metodología Excel Colo (balance neto facturación)
   const annualGenerationKwh = actualSystemKwp * hsp * 365 * sys.efficiency;
   const monthlyGenerationKwh = annualGenerationKwh / 12;
 
   // Generación mensual estacional
   const monthlyGeneration = calculateMonthlyGeneration(actualSystemKwp, hsp, sys.efficiency);
 
-  const effectiveMonthlyKwh = Math.min(monthlyGenerationKwh, monthlyKwh);
-  const monthlySavingsARS = effectiveMonthlyKwh * pricePerKwh;
-  const annualSavingsARS = monthlySavingsARS * 12;
+  // Cuota de autoconsumo: no toda la generación se usa directo (60% del consumo es diurno)
+  const selfConsumptionQuota = cfg.selfConsumptionQuota || 0.60;
+  const injectionPriceKwh = cfg.injectionPriceKwh || 105.1;
+  const impuestosFactor = 1 + (cfg.billIVA || 0.21) + (cfg.municipalTax || 0.064);
 
-  // Bug 9 fix: usar CONFIG.injectionPriceFactor
-  const injectionFactor = cfg.injectionPriceFactor || 0.50;
-  let excessMonthlyKwh = 0;
+  // Balance energético mensual
+  const autoconsumidaKwh = Math.min(monthlyKwh * selfConsumptionQuota, monthlyGenerationKwh);
+  const inyectadaKwh = Math.max(0, monthlyGenerationKwh - autoconsumidaKwh);
+  const demandadaKwh = monthlyKwh - autoconsumidaKwh;
+
+  // Ahorro = energía autoconsumida (no comprada) + crédito por inyección
+  const monthlySavingsAutoconsumo = autoconsumidaKwh * pricePerKwh;
   let monthlyInjectionARS = 0;
-  let annualInjectionARS = 0;
+  let excessMonthlyKwh = 0;
   if (systemType !== 'offgrid') {
-    excessMonthlyKwh = Math.max(0, monthlyGenerationKwh - monthlyKwh);
-    const injectionPriceKwh = pricePerKwh * injectionFactor;
-    monthlyInjectionARS = excessMonthlyKwh * injectionPriceKwh;
-    annualInjectionARS = monthlyInjectionARS * 12;
+    excessMonthlyKwh = inyectadaKwh;
+    monthlyInjectionARS = inyectadaKwh * injectionPriceKwh * impuestosFactor;
   }
-
+  const monthlySavingsARS = monthlySavingsAutoconsumo + monthlyInjectionARS;
+  const annualSavingsARS = monthlySavingsAutoconsumo * 12;
+  const annualInjectionARS = monthlyInjectionARS * 12;
   const totalAnnualBenefitARS = annualSavingsARS + annualInjectionARS;
 
-  // 9. Factura antes/después
+  // 9. Factura antes/después (balance neto)
   const monthlyBillBefore = monthlyKwh * pricePerKwh;
-  const monthlyBillAfter = Math.max(0, (monthlyKwh - effectiveMonthlyKwh) * pricePerKwh);
+  const monthlyBillAfter = Math.max(0, demandadaKwh * pricePerKwh - monthlyInjectionARS);
   const billReductionPct = monthlyBillBefore > 0 ? ((monthlyBillBefore - monthlyBillAfter) / monthlyBillBefore) * 100 : 0;
 
-  // 10. ROI — Bug 5+6+7: proyección 25 años con degradación, inflación, reemplazo inversor
-  const projection = generate25YearProjection({
+  // 10. ROI — Metodología Excel Colo: VAN, TIR, LCOE, Payback
+  const projectLife = cfg.projectLifeYears || 20;
+  const projection = generateProjection({
     totalCostARS, totalAnnualBenefitARS, inverterCostARS,
-    annualGenerationKwh, pricePerKwh, injectionFactor,
-    monthlyKwh, systemType,
+    annualGenerationKwh, pricePerKwh, injectionPriceKwh, impuestosFactor,
+    selfConsumptionQuota, monthlyKwh, systemType,
   }, cfg);
 
   const paybackYears = projection.paybackYear || 99;
-  const roi25years = totalCostARS > 0 ? (projection.cumulativeCashflow[24] / totalCostARS) * 100 : 0;
+  const lastYear = projection.cumulativeCashflow.length - 1;
+  const roi25years = totalCostARS > 0 ? (projection.cumulativeCashflow[lastYear] / totalCostARS) * 100 : 0;
 
   // 11. Ambiental
   const annualCO2kg = annualGenerationKwh * cfg.co2Factor;
@@ -243,7 +262,7 @@ function calculateSolar(params) {
     panelCostARS, inverterCostARS, structureCostARS, structureDetail,
     batteryCostARS, installCostARS, totalCostARS,
 
-    // Generation & Savings
+    // Generation & Savings (balance neto)
     annualGenerationKwh, monthlyGenerationKwh,
     monthlyGeneration,
     coveragePercent,
@@ -251,11 +270,19 @@ function calculateSolar(params) {
     excessMonthlyKwh, monthlyInjectionARS, annualInjectionARS,
     totalAnnualBenefitARS,
 
+    // Balance energético (Colo)
+    autoconsumidaKwh, inyectadaKwh, demandadaKwh,
+    selfConsumptionQuota,
+
     // Bill comparison
     monthlyBillBefore, monthlyBillAfter, billReductionPct,
 
-    // ROI
+    // ROI — VAN, TIR, LCOE, Payback
     paybackYears, roi25years,
+    van: projection.van,
+    tir: projection.tir,
+    lcoe: projection.lcoe,
+    projectLife,
     projection,
 
     // Environmental
@@ -263,6 +290,10 @@ function calculateSolar(params) {
 
     // Warnings
     offgridWarning,
+    powerLimitWarning,
+
+    // New params
+    phaseType, roofType, maxPowerKw,
   };
 }
 
@@ -279,49 +310,64 @@ function calculateMonthlyGeneration(systemKwp, hsp, efficiency) {
   }));
 }
 
-// Proyección 25 años con degradación, inflación tarifaria, reemplazo inversor
-function generate25YearProjection(data, cfg) {
+// Proyección con metodología Excel Colo: VAN, TIR, LCOE, Payback
+function generateProjection(data, cfg) {
   const {
     totalCostARS, totalAnnualBenefitARS, inverterCostARS,
-    annualGenerationKwh, pricePerKwh, injectionFactor,
-    monthlyKwh, systemType,
+    annualGenerationKwh, pricePerKwh, injectionPriceKwh, impuestosFactor,
+    selfConsumptionQuota, monthlyKwh, systemType,
   } = data;
 
+  const projectLife = cfg.projectLifeYears || 20;
   const degradation = cfg.panelDegradation || 0.005;
-  const inflation = cfg.tariffInflation || 0.30;
-  const inverterLife = cfg.inverterLifeYears || 12;
+  const inflation = cfg.tariffInflation || 0;
+  const discountRate = cfg.discountRate || 0;
+  const inverterLife = cfg.inverterLifeYears || 20;
 
   const years = [];
   const cumulativeCashflow = [];
+  const cashflows = [-totalCostARS]; // año 0
   let cumulative = -totalCostARS;
   let paybackYear = null;
+  let totalGenDiscounted = 0;
 
-  for (let y = 1; y <= 25; y++) {
+  for (let y = 1; y <= projectLife; y++) {
     // Generación con degradación
     const genFactor = Math.pow(1 - degradation, y);
     const yearGenKwh = annualGenerationKwh * genFactor;
+    const yearMonthlyGen = yearGenKwh / 12;
 
-    // Precio kWh con inflación
+    // Precio kWh con inflación (0 por defecto = precios constantes como Excel)
     const yearPriceKwh = pricePerKwh * Math.pow(1 + inflation, y);
+    const yearInjectionPrice = injectionPriceKwh * Math.pow(1 + inflation, y);
 
-    // Ahorro: lo que no pagas de la red
-    const yearEffectiveKwh = Math.min(yearGenKwh / 12, monthlyKwh) * 12;
-    const yearSavings = yearEffectiveKwh * yearPriceKwh;
+    // Balance energético con cuota de autoconsumo (metodología Colo)
+    const yearAutoconsumo = Math.min(monthlyKwh * selfConsumptionQuota, yearMonthlyGen) * 12;
+    const yearInyectada = Math.max(0, yearGenKwh - yearAutoconsumo);
+    const yearDemandada = monthlyKwh * 12 - yearAutoconsumo;
 
-    // Inyección excedente
+    // Ahorro por autoconsumo (energía que no comprás)
+    const yearSavings = yearAutoconsumo * yearPriceKwh;
+
+    // Crédito por inyección (tarifa ENRE)
     let yearInjection = 0;
     if (systemType !== 'offgrid') {
-      const yearExcess = Math.max(0, yearGenKwh - monthlyKwh * 12);
-      yearInjection = yearExcess * yearPriceKwh * injectionFactor;
+      yearInjection = yearInyectada * yearInjectionPrice * impuestosFactor;
     }
 
     const yearBenefit = yearSavings + yearInjection;
 
-    // Reemplazo inversor
-    const inverterReplacement = (y === inverterLife) ? inverterCostARS * Math.pow(1 + inflation, y) * 0.5 : 0;
+    // Reemplazo inversor (solo si vida útil < vida proyecto)
+    const inverterReplacement = (inverterLife < projectLife && y === inverterLife)
+      ? inverterCostARS * Math.pow(1 + inflation, y) * 0.5 : 0;
 
     const yearNet = yearBenefit - inverterReplacement;
     cumulative += yearNet;
+    cashflows.push(yearNet);
+
+    // Generación descontada para LCOE
+    const discFactor = discountRate > 0 ? Math.pow(1 + discountRate, y) : 1;
+    totalGenDiscounted += yearGenKwh / discFactor;
 
     if (paybackYear === null && cumulative >= 0) {
       paybackYear = y;
@@ -341,7 +387,69 @@ function generate25YearProjection(data, cfg) {
     cumulativeCashflow.push(Math.round(cumulative));
   }
 
-  return { years, cumulativeCashflow, paybackYear };
+  // VAN (Valor Actual Neto)
+  let van = -totalCostARS;
+  for (let y = 1; y <= projectLife; y++) {
+    const discFactor = discountRate > 0 ? Math.pow(1 + discountRate, y) : 1;
+    van += cashflows[y] / discFactor;
+  }
+
+  // TIR (Tasa Interna de Retorno) — bisección
+  const tir = calculateTIR(cashflows);
+
+  // LCOE (Costo Nivelado de Energía) = VAN_costos / generación descontada total
+  const lcoe = totalGenDiscounted > 0 ? totalCostARS / totalGenDiscounted : 0;
+
+  return { years, cumulativeCashflow, paybackYear, van: Math.round(van), tir, lcoe: Math.round(lcoe * 100) / 100 };
+}
+
+// TIR por bisección (busca tasa donde VAN = 0)
+function calculateTIR(cashflows) {
+  let lo = -0.5, hi = 5.0;
+  for (let i = 0; i < 100; i++) {
+    const mid = (lo + hi) / 2;
+    let npv = 0;
+    for (let t = 0; t < cashflows.length; t++) {
+      npv += cashflows[t] / Math.pow(1 + mid, t);
+    }
+    if (npv > 0) lo = mid;
+    else hi = mid;
+    if (Math.abs(hi - lo) < 0.0001) break;
+  }
+  const result = (lo + hi) / 2;
+  return Math.round(result * 10000) / 10000; // 4 decimales (ej: 0.1912 = 19.12%)
+}
+
+// Auto-calculate structure based on panel count and roof type (M2.4)
+function autoCalculateStructure(numPanels, roofType) {
+  // roofType: 'chapa', 'teja', 'losa'
+  const products = getProducts();
+  const items = [];
+
+  // Find structure product matching roofType
+  const structureProduct = products.find(p => p.category === 'estructura' && p.roofType === roofType);
+
+  if (structureProduct) {
+    const panelsPerKit = structureProduct.panelsPerKit || 4;
+    const kitsNeeded = Math.ceil(numPanels / panelsPerKit);
+    const unitARS = calcFinalPriceARS(structureProduct);
+    items.push({ id: structureProduct.id, qty: kitsNeeded, name: structureProduct.name, unitARS });
+  } else {
+    // Fallback: use first available structure
+    const fallback = products.find(p => p.category === 'estructura');
+    if (fallback) {
+      const panelsPerKit = fallback.panelsPerKit || 4;
+      const kitsNeeded = Math.ceil(numPanels / panelsPerKit);
+      const unitARS = calcFinalPriceARS(fallback);
+      items.push({ id: fallback.id, qty: kitsNeeded, name: fallback.name, unitARS });
+    }
+  }
+
+  return {
+    items,
+    totalARS: items.reduce((sum, i) => sum + i.qty * i.unitARS, 0),
+    description: roofType === 'losa' ? 'Estructura inclinada (losa)' : roofType === 'teja' ? 'Coplanar (teja)' : 'Coplanar (chapa)',
+  };
 }
 
 // Estimar kWh a partir de monto de factura
