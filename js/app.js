@@ -251,7 +251,59 @@ function setupUpload() {
   });
 }
 
+function resetCalculator() {
+  // Reset globals
+  currentResult = null;
+  currentPanelOverride = null;
+  currentPhaseType = 'mono';
+  currentRoofType = 'chapa';
+  currentMaxPowerKw = 10;
+  currentBillData = null;
+
+  // Hide results
+  document.getElementById('results').classList.remove('visible');
+
+  // Hide/reset bill result
+  const billResult = document.getElementById('bill-result');
+  if (billResult) billResult.style.display = 'none';
+  const billExtracted = document.getElementById('bill-extracted');
+  if (billExtracted) billExtracted.innerHTML = '';
+
+  // Hide phase question and power limit
+  const phaseQ = document.getElementById('phase-question');
+  if (phaseQ) phaseQ.style.display = 'none';
+  const powerLimit = document.getElementById('power-limit-info');
+  if (powerLimit) powerLimit.style.display = 'none';
+
+  // Reset hidden inputs
+  document.getElementById('phase-type').value = 'mono';
+  document.getElementById('max-power-kw').value = 10;
+
+  // Reset auto fields
+  const autoKwh = document.getElementById('auto-kwh');
+  if (autoKwh) autoKwh.value = '';
+  const autoTariff = document.getElementById('auto-tariff');
+  if (autoTariff) autoTariff.value = '';
+
+  // Reset file input so same file can be re-selected
+  const fileInput = document.getElementById('bill-file');
+  if (fileInput) fileInput.value = '';
+
+  // Reset loading
+  const loading = document.getElementById('calc-loading');
+  if (loading) loading.style.display = 'none';
+
+  // Reset calc button
+  const calcBtn = document.getElementById('calc-btn');
+  if (calcBtn) { calcBtn.disabled = false; calcBtn.textContent = 'Calcular ahorro solar'; }
+
+  // Reset progress
+  progressState = [false, false, false, false];
+  for (let i = 1; i <= 4; i++) updateProgress(i, false);
+}
+
 async function processFile(file) {
+  resetCalculator();
   const area = document.getElementById('upload-area');
 
   // Validar tipo de archivo
