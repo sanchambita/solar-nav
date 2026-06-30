@@ -28,10 +28,10 @@ function renderMonthlyChart(canvasId, monthlyGen, monthlyConsumption) {
       labels,
       datasets: [
         {
-          label: 'Generacion solar (kWh)',
+          label: 'Generación solar (kWh)',
           data: genData,
-          backgroundColor: 'rgba(0, 212, 170, 0.7)',
-          borderColor: '#00d4aa',
+          backgroundColor: 'rgba(230, 138, 0, 0.6)',
+          borderColor: '#e68a00',
           borderWidth: 1,
           borderRadius: 4,
           order: 2,
@@ -55,7 +55,7 @@ function renderMonthlyChart(canvasId, monthlyGen, monthlyConsumption) {
       aspectRatio: window.innerWidth < 768 ? 1 : 2,
       plugins: {
         legend: {
-          labels: { color: '#e0e0e0', font: { size: 11 } },
+          labels: { color: '#393c41', font: { size: 11 } },
         },
         tooltip: {
           callbacks: {
@@ -65,22 +65,22 @@ function renderMonthlyChart(canvasId, monthlyGen, monthlyConsumption) {
       },
       scales: {
         x: {
-          ticks: { color: '#888' },
-          grid: { color: 'rgba(255,255,255,0.05)' },
+          ticks: { color: '#5c5e62' },
+          grid: { color: 'rgba(0,0,0,0.06)' },
         },
         y: {
           ticks: {
-            color: '#888',
+            color: '#5c5e62',
             callback: v => v.toLocaleString('es-AR'),
           },
-          grid: { color: 'rgba(255,255,255,0.05)' },
+          grid: { color: 'rgba(0,0,0,0.06)' },
         },
       },
     },
   });
 }
 
-// 2. Proyeccion 25 años (barras ahorro + línea cashflow acumulado)
+// 2. Proyección 25 años (barras ahorro + línea cashflow acumulado)
 function renderProjectionChart(canvasId, projection) {
   destroyChart(canvasId);
   const ctx = document.getElementById(canvasId);
@@ -92,7 +92,7 @@ function renderProjectionChart(canvasId, projection) {
 
   // Barras: verde = beneficio, rojo en año de reemplazo inversor
   const barColors = projection.years.map(y =>
-    y.inverterReplacement > 0 ? 'rgba(255, 71, 87, 0.7)' : 'rgba(46, 213, 115, 0.6)'
+    y.inverterReplacement > 0 ? 'rgba(255, 59, 48, 0.6)' : 'rgba(0, 166, 80, 0.5)'
   );
 
   chartInstances[canvasId] = new Chart(ctx, {
@@ -112,7 +112,7 @@ function renderProjectionChart(canvasId, projection) {
           label: 'Cashflow acumulado',
           data: cumulative,
           type: 'line',
-          borderColor: '#ffd700',
+          borderColor: '#c89200',
           borderWidth: 2,
           pointRadius: 0,
           fill: false,
@@ -127,7 +127,7 @@ function renderProjectionChart(canvasId, projection) {
       aspectRatio: window.innerWidth < 768 ? 1 : 2.5,
       plugins: {
         legend: {
-          labels: { color: '#e0e0e0', font: { size: 11 } },
+          labels: { color: '#393c41', font: { size: 11 } },
         },
         tooltip: {
           callbacks: {
@@ -141,18 +141,18 @@ function renderProjectionChart(canvasId, projection) {
       scales: {
         x: {
           ticks: {
-            color: '#888',
+            color: '#5c5e62',
             maxRotation: 45,
             callback: function(val, i) { return (i + 1) % 5 === 0 || i === 0 ? (i + 1) : ''; },
           },
-          grid: { color: 'rgba(255,255,255,0.05)' },
+          grid: { color: 'rgba(0,0,0,0.06)' },
         },
         y: {
           ticks: {
-            color: '#888',
+            color: '#5c5e62',
             callback: v => (v / 1000000).toFixed(1) + 'M',
           },
-          grid: { color: 'rgba(255,255,255,0.05)' },
+          grid: { color: 'rgba(0,0,0,0.06)' },
         },
       },
     },
@@ -167,13 +167,13 @@ function renderCostDonut(canvasId, costs) {
 
   const data = [];
   const labels = [];
-  const colors = ['#00d4aa', '#ffd700', '#ff6b81', '#70a1ff', '#7bed9f'];
+  const colors = ['#e68a00', '#393c41', '#ff3b30', '#5856d6', '#00a650'];
 
   if (costs.panelCostARS > 0) { labels.push('Paneles'); data.push(costs.panelCostARS); }
   if (costs.inverterCostARS > 0) { labels.push('Inversor'); data.push(costs.inverterCostARS); }
   if (costs.batteryCostARS > 0) { labels.push('Baterias'); data.push(costs.batteryCostARS); }
   if (costs.structureCostARS > 0) { labels.push('Estructura'); data.push(costs.structureCostARS); }
-  if (costs.installCostARS > 0) { labels.push('Instalacion'); data.push(costs.installCostARS); }
+  if (costs.installCostARS > 0) { labels.push('Instalación'); data.push(costs.installCostARS); }
 
   chartInstances[canvasId] = new Chart(ctx, {
     type: 'doughnut',
@@ -182,7 +182,7 @@ function renderCostDonut(canvasId, costs) {
       datasets: [{
         data,
         backgroundColor: colors.slice(0, data.length),
-        borderColor: '#12121a',
+        borderColor: '#ffffff',
         borderWidth: 2,
       }],
     },
@@ -193,7 +193,7 @@ function renderCostDonut(canvasId, costs) {
       plugins: {
         legend: {
           position: 'bottom',
-          labels: { color: '#e0e0e0', font: { size: 11 }, padding: 12 },
+          labels: { color: '#393c41', font: { size: 11 }, padding: 12 },
         },
         tooltip: {
           callbacks: {

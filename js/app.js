@@ -18,8 +18,10 @@ function showToast(msg, type = 'info') {
 }
 
 // ---------- Init ----------
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   fetchBNADollar();
+  // Cargar datos desde Google Sheet (si esta configurado)
+  await loadFromSheet();
   populateProvinces();
   populateTariffs();
   populateEquipment();
@@ -161,6 +163,7 @@ let currentPhaseType = 'mono';
 let currentRoofType = 'chapa';
 let currentMaxPowerKw = 10;
 let currentBillData = null;
+let currentBillImage = null; // base64 de la factura subida
 
 function setEntryMode(mode) {
   entryMode = mode;
@@ -259,6 +262,7 @@ function resetCalculator() {
   currentRoofType = 'chapa';
   currentMaxPowerKw = 10;
   currentBillData = null;
+  currentBillImage = null;
 
   // Hide results
   document.getElementById('results').classList.remove('visible');
@@ -295,7 +299,7 @@ function resetCalculator() {
 
   // Reset calc button
   const calcBtn = document.getElementById('calc-btn');
-  if (calcBtn) { calcBtn.disabled = false; calcBtn.textContent = 'Calcular ahorro solar'; }
+  if (calcBtn) { calcBtn.disabled = false; calcBtn.textContent = 'Cotiza tu sistema'; }
 
   // Reset progress
   progressState = [false, false, false, false];
@@ -337,6 +341,9 @@ async function processFile(file) {
       b64data = base64.split(',')[1];
       sendMime = mimeType;
     }
+
+    // Guardar imagen de factura para enviar por email
+    currentBillImage = b64data;
 
     const response = await fetch('/api/analyze', {
       method: 'POST',
@@ -387,7 +394,7 @@ function showBillResult(data) {
   if (data.tarifa) html += row('Tarifa', data.tarifa);
   if (data.tipo_tarifa) html += row('Tipo', data.tipo_tarifa + (data.actividad ? ' — ' + data.actividad : ''));
   if (data.consumo_kwh) html += row('Consumo', data.consumo_kwh + ' kWh');
-  if (data.dias_periodo) html += row('Dias periodo', data.dias_periodo + ' dias');
+  if (data.dias_periodo) html += row('Dias periodo', data.dias_periodo + ' días');
   if (data.monto_total) html += row('Total a pagar', formatARS(data.monto_total));
   if (data.cargo_fijo) html += row('Cargo fijo', formatARS(data.cargo_fijo));
   if (data.cargo_variable_1) html += row('Cargo variable 1', formatARS(data.cargo_variable_1));
@@ -602,7 +609,7 @@ function runCalculation() {
     }
   } else {
     tariffId = document.getElementById('tariff').value;
-    if (!tariffId) { showToast('Selecciona un proveedor de energia', 'error'); return; }
+    if (!tariffId) { showToast('Selecciona un proveedor de energía', 'error'); return; }
 
     if (currentMode === 'kwh') {
       monthlyKwh = parseFloat(document.getElementById('input-kwh').value);
@@ -623,6 +630,12 @@ function runCalculation() {
   const invSelVal = document.getElementById('inverter-select')?.value;
   const numPanelsInput = parseInt(document.getElementById('num-panels-override')?.value) || 0;
 
+  // Si hay factura, calcular precio real: cargo_variable_1 / consumo_kwh
+  let billPricePerKwh = null;
+  if (currentBillData && currentBillData.cargo_variable_1 && currentBillData.consumo_kwh) {
+    billPricePerKwh = currentBillData.cargo_variable_1 / currentBillData.consumo_kwh;
+  }
+
   const calcParams = {
     provinceId, monthlyKwh, tariffId,
     systemType: currentSystemType,
@@ -635,6 +648,7 @@ function runCalculation() {
     phaseType: currentPhaseType,
     roofType: currentRoofType,
     maxPowerKw: currentMaxPowerKw,
+    billPricePerKwh,
   };
 
   // Hide results and show loading animation
@@ -684,7 +698,7 @@ function runAnalysisAnimation(calcParams) {
 
     loading.style.display = 'none';
     document.getElementById('calc-btn').disabled = false;
-    document.getElementById('calc-btn').textContent = 'Calcular ahorro solar';
+    document.getElementById('calc-btn').textContent = 'Cotiza tu sistema';
 
     if (result.error) {
       showToast(result.error, 'error');
@@ -720,7 +734,7 @@ async function submitLead() {
 
   const btn = document.getElementById('lead-submit-btn');
   btn.disabled = true;
-  btn.textContent = 'Enviando...';
+  btn.textContent = 'Procesando...';
 
   // Build budget summary for the API
   const r = currentResult;
@@ -728,6 +742,7 @@ async function submitLead() {
     province: r.province,
     monthlyKwh: r.monthlyKwh,
     systemType: r.systemType,
+    systemTypeLabel: r.systemTypeLabel,
     totalCostARS: r.totalCostARS,
     numPanels: r.numPanels,
     panelName: r.selectedPanel,
@@ -739,19 +754,25 @@ async function submitLead() {
     structureCostARS: r.structureCostARS,
     batteryCostARS: r.batteryCostARS,
     installCostARS: r.installCostARS,
-    annualSavingsARS: r.annualSavingsARS,
+    monthlySavingsARS: r.monthlySavingsARS,
+    monthlyGenerationKwh: r.monthlyGenerationKwh,
+    pricePerKwh: r.pricePerKwh,
+    coveragePercent: r.coveragePercent,
     paybackYears: r.paybackYears,
+    systemKwp: r.systemKwp,
+    hsp: r.hsp,
   } : null;
 
+  // Enviar datos + factura a ventas (notificacion interna)
   try {
     const res = await fetch('/api/lead', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, phone, budget }),
+      body: JSON.stringify({ name, email, phone, budget, billImage: currentBillImage }),
     });
     const data = await res.json();
-    if (data.emailSent) {
-      showToast('Presupuesto enviado a ' + email, 'success');
+    if (data.ok) {
+      showToast('Datos enviados correctamente', 'success');
     }
   } catch (err) {
     console.warn('Lead API error:', err.message);
@@ -768,6 +789,118 @@ async function submitLead() {
 
   btn.disabled = false;
   btn.textContent = 'Ver presupuesto';
+}
+
+
+async function generatePDFBase64() {
+  if (typeof window.jspdf === 'undefined') {
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    if (typeof window.jspdf === 'undefined') return null;
+  }
+
+  const r = currentResult;
+  const cfg = getConfig();
+  const date = new Date().toLocaleDateString('es-AR');
+  const phone = cfg.whatsappNumber || '5491155881126';
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const w = doc.internal.pageSize.getWidth();
+  const margin = 15;
+  let y = 15;
+
+  const addText = (text, x, _y, opts = {}) => {
+    doc.setFontSize(opts.size || 10);
+    doc.setFont('helvetica', opts.bold ? 'bold' : 'normal');
+    doc.setTextColor(opts.color || '#222222');
+    doc.text(text, x, _y, opts.align ? { align: opts.align } : undefined);
+  };
+  const addLine = (_y, color) => { doc.setDrawColor(color || '#dddddd'); doc.line(margin, _y, w - margin, _y); };
+  const addRow = (label, value, _y) => { addText(label, margin, _y); addText(value, w - margin, _y, { align: 'right' }); return _y + 6; };
+  const addSectionHeader = (title, _y) => { addText(title, margin, _y, { size: 12, bold: true, color: '#e68a00' }); return _y + 8; };
+  const checkPage = (_y, needed) => { if (_y + needed > 275) { doc.addPage(); return 15; } return _y; };
+
+  // Header
+  addText('PRESUPUESTO SOLAR', margin, y, { size: 18, bold: true, color: '#e68a00' });
+  addText('Navimaq Solar', w - margin, y, { size: 12, align: 'right', color: '#666666' });
+  y += 6;
+  addText('navimaqsolar.com.ar', w - margin, y, { size: 8, align: 'right', color: '#999999' });
+  y += 4;
+  addLine(y, '#e68a00');
+  y += 6;
+  addText('Fecha: ' + date, margin, y, { size: 9, color: '#666666' });
+  addText('Sistema: ' + r.systemTypeLabel + '  |  ' + r.province + ' (' + r.hsp + ' HSP)', w - margin, y, { size: 9, align: 'right', color: '#666666' });
+  y += 10;
+
+  // Hero metrics
+  doc.setFillColor(255, 248, 235);
+  doc.roundedRect(margin, y - 4, w - margin * 2, 20, 3, 3, 'F');
+  const heroX = [margin + 10, margin + 55, margin + 105, margin + 150];
+  addText(formatNumber(r.systemKwp) + ' kWp', heroX[0], y + 4, { size: 14, bold: true, color: '#e68a00' });
+  addText('Potencia', heroX[0], y + 10, { size: 7, color: '#888888' });
+  addText(formatARS(r.monthlySavingsARS), heroX[1], y + 4, { size: 14, bold: true, color: '#e68a00' });
+  addText('Ahorro/mes', heroX[1], y + 10, { size: 7, color: '#888888' });
+  addText(r.paybackYears < 50 ? formatNumber(r.paybackYears) + ' años' : 'N/A', heroX[2], y + 4, { size: 14, bold: true, color: '#e68a00' });
+  addText('Payback', heroX[2], y + 10, { size: 7, color: '#888888' });
+  addText(Math.round(r.coveragePercent) + '%', heroX[3], y + 4, { size: 14, bold: true, color: '#e68a00' });
+  addText('Cobertura', heroX[3], y + 10, { size: 7, color: '#888888' });
+  y += 24;
+
+  // Equipamiento
+  y = addSectionHeader('Equipamiento recomendado', y);
+  y = addRow(r.numPanels + 'x ' + r.selectedPanel + ' (' + r.panelWatts + 'W)', '', y);
+  if (r.selectedInverters.length) {
+    r.selectedInverters.forEach(inv => {
+      y = addRow((inv.qty > 1 ? inv.qty + 'x ' : '') + inv.name, '', y);
+    });
+  }
+  if (r.batteryCount > 0 && r.selectedBattery) {
+    y = addRow(r.batteryCount + 'x ' + r.selectedBattery + ' (' + r.batteryTypeLabel + ')', '', y);
+    y = addRow('Autonomía', r.autonomyHours + ' hs / ' + r.batteryKwh + ' kWh', y);
+  }
+  y += 4;
+
+  // Inversion total
+  y = checkPage(y, 20);
+  doc.setFillColor(255, 248, 235);
+  doc.roundedRect(margin, y - 4, w - margin * 2, 16, 3, 3, 'F');
+  addText('INVERSION TOTAL', margin + 8, y + 4, { size: 12, bold: true });
+  addText(formatARS(r.totalCostARS), w - margin - 8, y + 4, { size: 14, bold: true, color: '#e68a00', align: 'right' });
+  addText('IVA incluido — Incluye equipamiento, estructura e instalación', margin + 8, y + 10, { size: 7, color: '#888888' });
+  y += 22;
+
+  // Ahorro mensual
+  y = checkPage(y, 20);
+  y = addSectionHeader('Ahorro estimado', y);
+  y = addRow('Ahorro mensual', formatARS(r.monthlySavingsARS) + '/mes', y);
+  y = addRow('Recupero inversión', r.paybackYears < 50 ? formatNumber(r.paybackYears) + ' años' : 'N/A', y);
+  y += 4;
+
+  // Ambiental
+  y = checkPage(y, 20);
+  y = addSectionHeader('Impacto ambiental', y);
+  y = addRow('Generación anual', formatNumber(r.annualGenerationKwh) + ' kWh/año', y);
+  y = addRow('CO2 evitado', formatNumber(r.annualCO2kg) + ' kg/año', y);
+  y = addRow('Árboles equivalentes', r.treesEquivalent + ' árboles', y);
+  y += 6;
+
+  // Disclaimer
+  y = checkPage(y, 30);
+  addLine(y);
+  y += 6;
+  addText('Presupuesto Preliminar Estimativo', margin, y, { size: 9, bold: true });
+  y += 5;
+  addText('Los valores son orientativos y estan sujetos a modificaciones tras la visita tecnica.', margin, y, { size: 7, color: '#888888' });
+  y += 4;
+  addText('Garantía: 12 meses sobre la instalación. No incluye trámites medidor bidireccional.', margin, y, { size: 7, color: '#888888' });
+  y += 8;
+
+  // Footer
+  addText('Navimaq Solar — navimaqsolar.com.ar', w / 2, y, { size: 9, bold: true, align: 'center', color: '#e68a00' });
+  y += 5;
+  addText('WhatsApp: +' + phone, w / 2, y, { size: 8, align: 'center', color: '#666666' });
+
+  return doc.output('datauristring').split(',')[1];
 }
 
 // ---------- CountUp Animation (M3.2) ----------
@@ -837,7 +970,7 @@ function renderResults(r) {
   // Hero metrics strip — with countUp animation
   animateValue(el('r-power'), r.systemKwp, 800, '', '');
   animateARS(el('r-save-month-hero'), r.monthlySavingsARS, 800);
-  el('r-payback-hero').textContent = r.paybackYears >= 50 ? 'N/A' : formatNumber(r.paybackYears) + ' anos';
+  el('r-payback-hero').textContent = r.paybackYears >= 50 ? 'N/A' : formatNumber(r.paybackYears) + ' años';
   el('r-coverage').textContent = '0%';
   animateValue(el('r-coverage'), Math.round(r.coveragePercent), 800, '', '%');
 
@@ -845,11 +978,14 @@ function renderResults(r) {
   el('r-panels').textContent = r.numPanels;
   el('r-panel-rec').textContent = r.numPanels === r.recommendedPanels ? '(recomendado)' : '(recomendado: ' + r.recommendedPanels + ')';
 
-  // Bill comparison
-  el('r-bill-before').textContent = formatARS(r.monthlyBillBefore);
-  el('r-bill-after').textContent = formatARS(r.monthlyBillAfter);
-  el('r-bill-pct').textContent = Math.round(r.billReductionPct) + '%';
-  el('r-bill-save-ars').textContent = formatARS(r.monthlySavingsARS) + '/mes';
+  // Ahorro P x Q (generación x costo variable)
+  const pxqSavings = Math.round(r.monthlyGenerationKwh) * r.pricePerKwh;
+  el('r-gen-month-kwh').textContent = formatNumber(Math.round(r.monthlyGenerationKwh));
+  el('r-cost-kwh').textContent = formatARS(r.pricePerKwh);
+  // Indicar si el precio viene de la factura real
+  const costKwhSub = document.querySelector('#r-cost-kwh')?.closest('.bill-box')?.querySelector('.bill-sub');
+  if (costKwhSub) costKwhSub.textContent = currentBillData?.cargo_variable_1 ? '$/kWh (de tu factura)' : '$/kWh (tarifa ref.)';
+  el('r-pxq-savings').textContent = formatARS(pxqSavings);
 
   // Cost breakdown
   el('r-panel-detail').textContent = r.numPanels + 'x ' + r.selectedPanel;
@@ -875,9 +1011,7 @@ function renderResults(r) {
 
   // Savings
   el('r-save-month').textContent = formatARS(r.monthlySavingsARS);
-  el('r-save-year').textContent = formatARS(r.annualSavingsARS);
-  el('r-payback').textContent = r.paybackYears >= 50 ? 'N/A' : formatNumber(r.paybackYears) + ' anos';
-  el('r-roi').textContent = Math.round(r.roi25years) + '%';
+  el('r-payback').textContent = r.paybackYears >= 50 ? 'N/A' : formatNumber(r.paybackYears) + ' años';
 
   // Métricas financieras (Colo)
   if (el('r-van')) el('r-van').textContent = formatARS(r.van);
@@ -947,7 +1081,6 @@ function renderResults(r) {
   setTimeout(() => {
     if (typeof Chart !== 'undefined') {
       renderMonthlyChart('chart-monthly', r.monthlyGeneration, r.monthlyKwh);
-      renderProjectionChart('chart-projection', r.projection);
       renderCostDonut('chart-costs', r);
     }
   }, 100);
@@ -960,8 +1093,8 @@ function renderProposal(r) {
   section.style.display = 'block';
 
   const coverText = r.coveragePercent >= 100 ? 'cubriendo el 100% de tu consumo' : 'cubriendo el ' + Math.round(r.coveragePercent) + '% de tu consumo';
-  const paybackText = r.paybackYears < 50 ? 'con un recupero estimado en ' + formatNumber(r.paybackYears) + ' anos' : '';
-  const battText = r.systemType !== 'ongrid' ? ' Con almacenamiento de ' + r.batteryKwh + ' kWh en baterias ' + r.batteryTypeLabel + ' para ' + r.autonomyHours + ' horas de autonomia (' + r.criticalLoadWatts + 'W cargas criticas).' : '';
+  const paybackText = r.paybackYears < 50 ? 'con un recupero estimado en ' + formatNumber(r.paybackYears) + ' años' : '';
+  const battText = r.systemType !== 'ongrid' ? ' Con almacenamiento de ' + r.batteryKwh + ' kWh en baterias ' + r.batteryTypeLabel + ' para ' + r.autonomyHours + ' horas de autonomía (' + r.criticalLoadWatts + 'W cargas criticas).' : '';
   const injText = r.systemType === 'ongrid' && r.excessMonthlyKwh > 0 ? ' Bajo la Ley 27.424, el excedente de ' + Math.round(r.excessMonthlyKwh) + ' kWh/mes se inyecta a la red generando credito adicional.' : '';
 
   summary.innerHTML = 'Para tu hogar en <strong>' + esc(r.province) + '</strong> (' + r.hsp + ' HSP), recomendamos un sistema <strong>' + esc(r.systemTypeLabel) + '</strong> de <strong>' + formatNumber(r.systemKwp) + ' kWp</strong> con ' + r.numPanels + ' paneles ' + esc(r.selectedPanel) + ', ' + coverText + '. '
@@ -1089,12 +1222,12 @@ function renderComparison() {
     { label: 'Paneles', key: r => r.numPanels },
     { label: 'Inversion total', key: r => formatARS(r.totalCostARS), best: 'min', numKey: r => r.totalCostARS },
     { label: 'Ahorro mensual', key: r => formatARS(r.monthlySavingsARS), best: 'max', numKey: r => r.monthlySavingsARS },
-    { label: 'Payback', key: r => r.paybackYears < 50 ? formatNumber(r.paybackYears) + ' anos' : 'N/A', best: 'min', numKey: r => r.paybackYears },
+    { label: 'Payback', key: r => r.paybackYears < 50 ? formatNumber(r.paybackYears) + ' años' : 'N/A', best: 'min', numKey: r => r.paybackYears },
     { label: 'Cobertura', key: r => Math.round(r.coveragePercent) + '%', best: 'max', numKey: r => r.coveragePercent },
-    { label: 'ROI ' + (getConfig().projectLifeYears || 20) + ' anos', key: r => Math.round(r.roi25years) + '%', best: 'max', numKey: r => r.roi25years },
-    { label: 'Autonomia', key: r => r.systemType === 'ongrid' ? 'No (conectado a red)' : r.autonomyHours + ' hs' },
+    { label: 'ROI ' + (getConfig().projectLifeYears || 20) + ' años', key: r => Math.round(r.roi25years) + '%', best: 'max', numKey: r => r.roi25years },
+    { label: 'Autonomía', key: r => r.systemType === 'ongrid' ? 'No (conectado a red)' : r.autonomyHours + ' hs' },
     { label: 'Baterias', key: r => r.batteryCount > 0 ? r.batteryCount + 'x ' + (r.selectedBattery || '') : 'No requiere' },
-    { label: 'CO2 evitado', key: r => formatNumber(r.annualCO2kg) + ' kg/ano' },
+    { label: 'CO2 evitado', key: r => formatNumber(r.annualCO2kg) + ' kg/año' },
   ];
 
   let html = '<thead><tr><th></th>';
@@ -1139,7 +1272,7 @@ function sendWhatsApp() {
     msg += ' Consumo: ' + formatNumber(r.monthlyKwh) + ' kWh/mes.';
     msg += ' Me interesa un presupuesto.';
   } else {
-    msg += 'Me interesa un presupuesto de energia solar.';
+    msg += 'Me interesa un presupuesto de energía solar.';
   }
 
   window.open('https://wa.me/' + encodeURIComponent(phone) + '?text=' + encodeURIComponent(msg), '_blank');
@@ -1340,7 +1473,7 @@ async function exportPDF() {
     addText('Potencia', heroX[0], y + 10, { size: 7, color: '#888888' });
     addText(formatARS(r.monthlySavingsARS), heroX[1], y + 4, { size: 14, bold: true, color: '#00875a' });
     addText('Ahorro/mes', heroX[1], y + 10, { size: 7, color: '#888888' });
-    addText(r.paybackYears < 50 ? formatNumber(r.paybackYears) + ' anos' : 'N/A', heroX[2], y + 4, { size: 14, bold: true, color: '#00875a' });
+    addText(r.paybackYears < 50 ? formatNumber(r.paybackYears) + ' años' : 'N/A', heroX[2], y + 4, { size: 14, bold: true, color: '#00875a' });
     addText('Payback', heroX[2], y + 10, { size: 7, color: '#888888' });
     addText(Math.round(r.coveragePercent) + '%', heroX[3], y + 4, { size: 14, bold: true, color: '#00875a' });
     addText('Cobertura', heroX[3], y + 10, { size: 7, color: '#888888' });
@@ -1356,7 +1489,7 @@ async function exportPDF() {
     }
     if (r.batteryCount > 0 && r.selectedBattery) {
       y = addRow(r.batteryCount + 'x ' + r.selectedBattery + ' (' + r.batteryTypeLabel + ')', formatARS(r.batteryCostARS), y);
-      y = addRow('Autonomia', r.autonomyHours + ' hs / ' + r.batteryKwh + ' kWh / ' + r.criticalLoadWatts + 'W criticos', y);
+      y = addRow('Autonomía', r.autonomyHours + ' hs / ' + r.batteryKwh + ' kWh / ' + r.criticalLoadWatts + 'W críticos', y);
     }
     y = addRow('Cobertura del consumo', Math.round(r.coveragePercent) + '%', y);
     y = addRow('Superficie requerida', formatNumber(r.areaM2) + ' m2', y);
@@ -1369,86 +1502,26 @@ async function exportPDF() {
     y = addRow('Inversor', formatARS(r.inverterCostARS), y);
     if (r.batteryCostARS > 0) y = addRow('Baterias', formatARS(r.batteryCostARS), y);
     y = addRow('Estructura', formatARS(r.structureCostARS), y);
-    y = addRow('Instalacion', formatARS(r.installCostARS), y);
+    y = addRow('Instalación', formatARS(r.installCostARS), y);
     addLine(y - 2, '#00875a');
     y += 2;
     addText('INVERSION TOTAL', margin, y, { size: 12, bold: true });
     addText(formatARS(r.totalCostARS), w - margin, y, { size: 12, bold: true, color: '#00875a', align: 'right' });
     y += 10;
 
-    // --- FACTURA ANTES/DESPUES ---
-    y = checkPage(y, 30);
-    y = addSectionHeader('Tu factura antes y despues', y);
-    doc.setFillColor(255, 245, 245);
-    doc.roundedRect(margin, y - 4, 55, 16, 2, 2, 'F');
-    addText('Hoy pagas', margin + 4, y, { size: 8, color: '#888888' });
-    addText(formatARS(r.monthlyBillBefore) + '/mes', margin + 4, y + 7, { size: 11, bold: true, color: '#c0392b' });
-
-    doc.setFillColor(240, 255, 240);
-    doc.roundedRect(margin + 60, y - 4, 55, 16, 2, 2, 'F');
-    addText('Con solar', margin + 64, y, { size: 8, color: '#888888' });
-    addText(formatARS(r.monthlyBillAfter) + '/mes', margin + 64, y + 7, { size: 11, bold: true, color: '#27ae60' });
-
-    doc.setFillColor(255, 250, 230);
-    doc.roundedRect(margin + 120, y - 4, 55, 16, 2, 2, 'F');
-    addText('Ahorras', margin + 124, y, { size: 8, color: '#888888' });
-    addText(Math.round(r.billReductionPct) + '% — ' + formatARS(r.monthlySavingsARS) + '/mes', margin + 124, y + 7, { size: 10, bold: true, color: '#f39c12' });
-    y += 22;
-
-    // --- ROI ---
+    // --- AHORRO ESTIMADO ---
     y = checkPage(y, 20);
-    y = addSectionHeader('Retorno de inversion', y);
-    y = addRow('Ahorro anual', formatARS(r.annualSavingsARS), y);
-    y = addRow('Recupero inversion', r.paybackYears < 50 ? formatNumber(r.paybackYears) + ' anos' : 'N/A', y);
-    y = addRow('ROI a ' + r.projectLife + ' anos', Math.round(r.roi25years) + '%', y);
-    if (r.van) y = addRow('VAN', formatARS(r.van), y);
-    if (r.tir) y = addRow('TIR', (r.tir * 100).toFixed(1) + '%', y);
-    if (r.lcoe) y = addRow('LCOE', '$' + formatNumber(r.lcoe) + '/kWh', y);
-    y += 4;
-
-    // --- PROYECCION 25 ANOS ---
-    y = checkPage(y, 80);
-    y = addSectionHeader('Proyeccion a 25 anos', y);
-    addText('Degradacion ' + ((cfg.panelDegradation || 0.005) * 100).toFixed(1) + '%/ano | Inflacion ' + Math.round((cfg.tariffInflation || 0.30) * 100) + '%/ano | Reemplazo inversor ano ' + (cfg.inverterLifeYears || 12), margin, y, { size: 7, color: '#999999' });
-    y += 5;
-
-    // Table header
-    const colX = [margin, margin + 15, margin + 45, margin + 80, margin + 115, margin + 145];
-    doc.setFillColor(245, 245, 245);
-    doc.rect(margin, y - 3, w - margin * 2, 6, 'F');
-    addText('Ano', colX[0], y, { size: 7, bold: true, color: '#666666' });
-    addText('Gen. MWh', colX[1], y, { size: 7, bold: true, color: '#666666' });
-    addText('Beneficio', colX[2], y, { size: 7, bold: true, color: '#666666' });
-    addText('Reemplazo', colX[3], y, { size: 7, bold: true, color: '#666666' });
-    addText('Acumulado', colX[4], y, { size: 7, bold: true, color: '#666666' });
-    y += 5;
-
-    if (r.projection && r.projection.years) {
-      r.projection.years.forEach(yr => {
-        y = checkPage(y, 5);
-        if (yr.inverterReplacement > 0) {
-          doc.setFillColor(255, 243, 224);
-          doc.rect(margin, y - 3, w - margin * 2, 5, 'F');
-        } else if (yr.year === r.projection.paybackYear) {
-          doc.setFillColor(232, 245, 233);
-          doc.rect(margin, y - 3, w - margin * 2, 5, 'F');
-        }
-        addText(String(yr.year), colX[0], y, { size: 7 });
-        addText((yr.generation / 1000).toFixed(1), colX[1], y, { size: 7 });
-        addText(formatARS(yr.benefit), colX[2], y, { size: 7 });
-        addText(yr.inverterReplacement > 0 ? formatARS(yr.inverterReplacement) : '-', colX[3], y, { size: 7 });
-        addText(formatARS(yr.cumulative), colX[4], y, { size: 7, color: yr.cumulative >= 0 ? '#27ae60' : '#c0392b' });
-        y += 5;
-      });
-    }
+    y = addSectionHeader('Ahorro estimado', y);
+    y = addRow('Ahorro mensual', formatARS(r.monthlySavingsARS) + '/mes', y);
+    y = addRow('Recupero inversión', r.paybackYears < 50 ? formatNumber(r.paybackYears) + ' años' : 'N/A', y);
     y += 4;
 
     // --- AMBIENTAL ---
     y = checkPage(y, 20);
     y = addSectionHeader('Impacto ambiental', y);
-    y = addRow('Generacion anual', formatNumber(r.annualGenerationKwh) + ' kWh/ano', y);
-    y = addRow('CO2 evitado', formatNumber(r.annualCO2kg) + ' kg/ano', y);
-    y = addRow('Arboles equivalentes', r.treesEquivalent + ' arboles', y);
+    y = addRow('Generación anual', formatNumber(r.annualGenerationKwh) + ' kWh/año', y);
+    y = addRow('CO2 evitado', formatNumber(r.annualCO2kg) + ' kg/año', y);
+    y = addRow('Árboles equivalentes', r.treesEquivalent + ' árboles', y);
     y += 6;
 
     // --- FOOTER ---
@@ -1459,7 +1532,7 @@ async function exportPDF() {
     y += 5;
     addText('WhatsApp: +' + phone, w / 2, y, { size: 8, align: 'center', color: '#666666' });
     y += 5;
-    addText('Precios al tipo de cambio del dia. Valores estimativos sujetos a confirmacion.', w / 2, y, { size: 7, align: 'center', color: '#999999' });
+    addText('Precios al tipo de cambio del dia. Valores estimativos sujetos a confirmación.', w / 2, y, { size: 7, align: 'center', color: '#999999' });
     y += 4;
     addText('Consumo: ' + formatNumber(r.monthlyKwh) + ' kWh/mes — Tarifa: ' + r.tariffLabel, w / 2, y, { size: 7, align: 'center', color: '#999999' });
 

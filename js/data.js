@@ -224,3 +224,23 @@ function formatUSD(n) {
 function formatNumber(n) {
   return new Intl.NumberFormat('es-AR', { maximumFractionDigits: 1 }).format(n);
 }
+
+// ---------- Google Sheets override ----------
+async function loadFromSheet() {
+  try {
+    const res = await fetch('/api/sheets');
+    const data = await res.json();
+    if (data.products && data.products.length > 0) {
+      saveProducts(data.products);
+      console.log('Productos cargados desde Google Sheet:', data.products.length);
+    }
+    if (data.config && Object.keys(data.config).length > 0) {
+      saveConfig(data.config);
+      console.log('Config cargada desde Google Sheet:', Object.keys(data.config));
+    }
+    return data;
+  } catch (err) {
+    console.warn('No se pudo cargar Google Sheet, usando datos locales:', err.message);
+    return null;
+  }
+}

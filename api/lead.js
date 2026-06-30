@@ -1,4 +1,4 @@
-// Save solar lead to Supabase + send budget email via Resend
+// Internal notification: send lead + bill + quote to ventas@navimaxsolar.com.ar
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST');
@@ -6,13 +6,10 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
 
-  const { name, email, phone, budget } = req.body || {};
+  const { name, email, phone, budget, billImage } = req.body || {};
 
   if (!name || !email) {
-    return res.status(400).json({ error: 'Nombre y email son requeridos' });
-  }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return res.status(400).json({ error: 'Email inválido' });
+    return res.status(400).json({ error: 'Nombre y email requeridos' });
   }
 
   const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -59,9 +56,10 @@ export default async function handler(req, res) {
     console.error('Supabase error:', err.message);
   }
 
-  // 2. Build email HTML
+  // 2. Build internal notification email
   const b = budget || {};
   const fmtARS = (n) => n ? '$' + Math.round(n).toLocaleString('es-AR') : '-';
+  const date = new Date().toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' });
 
   const emailHtml = `
 <!DOCTYPE html>
@@ -69,73 +67,80 @@ export default async function handler(req, res) {
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>
 <body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,Helvetica,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#ffffff;">
-  <tr><td style="background:#1a1a2e;padding:24px;text-align:center;">
-    <h1 style="color:#f4c430;margin:0;font-size:22px;">Navimaq Solar</h1>
-    <p style="color:#ccc;margin:4px 0 0;font-size:13px;">Presupuesto Preliminar Estimativo</p>
+  <tr><td style="background:#171a20;padding:24px;text-align:center;">
+    <h1 style="color:#e68a00;margin:0;font-size:22px;">Nueva Consulta Solar</h1>
+    <p style="color:#ccc;margin:4px 0 0;font-size:13px;">${escHtml(date)} — Calculadora Web</p>
   </td></tr>
 
   <tr><td style="padding:24px;">
-    <p style="margin:0 0 16px;font-size:15px;">Hola <strong>${escHtml(name)}</strong>,</p>
-    <p style="margin:0 0 20px;font-size:14px;color:#555;">Gracias por utilizar nuestro calculador solar. A continuacion te compartimos tu presupuesto estimativo:</p>
-
-    <table width="100%" cellpadding="8" cellspacing="0" style="border:1px solid #eee;border-radius:8px;font-size:14px;">
-      <tr style="background:#f9f9f9;"><td colspan="2" style="font-weight:bold;font-size:15px;color:#1a1a2e;">Sistema Propuesto</td></tr>
-      ${b.systemType ? `<tr><td style="color:#777;">Tipo</td><td style="text-align:right;font-weight:500;">${escHtml(b.systemType)}</td></tr>` : ''}
-      ${b.province ? `<tr><td style="color:#777;">Ubicacion</td><td style="text-align:right;font-weight:500;">${escHtml(b.province)}</td></tr>` : ''}
-      ${b.monthlyKwh ? `<tr><td style="color:#777;">Consumo mensual</td><td style="text-align:right;font-weight:500;">${b.monthlyKwh} kWh</td></tr>` : ''}
-      ${b.numPanels ? `<tr><td style="color:#777;">Paneles</td><td style="text-align:right;font-weight:500;">${b.numPanels}x ${escHtml(b.panelName || '')}</td></tr>` : ''}
-      ${b.inverterInfo ? `<tr><td style="color:#777;">Inversor</td><td style="text-align:right;font-weight:500;">${escHtml(b.inverterInfo)}</td></tr>` : ''}
-      ${b.batteryCount > 0 ? `<tr><td style="color:#777;">Baterias</td><td style="text-align:right;font-weight:500;">${b.batteryCount}x Pylontech US5000</td></tr>` : ''}
-      ${b.structureInfo ? `<tr><td style="color:#777;">Estructura</td><td style="text-align:right;font-weight:500;">${escHtml(b.structureInfo)}</td></tr>` : ''}
+    <table width="100%" cellpadding="8" cellspacing="0" style="border:2px solid #e68a00;border-radius:8px;font-size:14px;margin-bottom:16px;">
+      <tr style="background:#fff8e1;"><td colspan="2" style="font-weight:bold;font-size:15px;color:#171a20;">Datos del Cliente</td></tr>
+      <tr><td style="color:#777;width:120px;">Nombre</td><td style="font-weight:bold;">${escHtml(name)}</td></tr>
+      <tr><td style="color:#777;">Email</td><td><a href="mailto:${escHtml(email)}">${escHtml(email)}</a></td></tr>
+      ${phone ? `<tr><td style="color:#777;">Telefono</td><td><a href="https://wa.me/${phone.replace(/\D/g, '')}">${escHtml(phone)}</a></td></tr>` : ''}
     </table>
 
-    <table width="100%" cellpadding="8" cellspacing="0" style="border:1px solid #eee;border-radius:8px;font-size:14px;margin-top:12px;">
-      <tr style="background:#f9f9f9;"><td colspan="2" style="font-weight:bold;font-size:15px;color:#1a1a2e;">Desglose de Costos</td></tr>
-      ${b.panelCostARS ? `<tr><td style="color:#777;">Paneles</td><td style="text-align:right;">${fmtARS(b.panelCostARS)}</td></tr>` : ''}
-      ${b.inverterCostARS ? `<tr><td style="color:#777;">Inversor</td><td style="text-align:right;">${fmtARS(b.inverterCostARS)}</td></tr>` : ''}
-      ${b.structureCostARS ? `<tr><td style="color:#777;">Estructura</td><td style="text-align:right;">${fmtARS(b.structureCostARS)}</td></tr>` : ''}
-      ${b.batteryCostARS > 0 ? `<tr><td style="color:#777;">Baterias</td><td style="text-align:right;">${fmtARS(b.batteryCostARS)}</td></tr>` : ''}
-      ${b.installCostARS ? `<tr><td style="color:#777;">Instalacion</td><td style="text-align:right;">${fmtARS(b.installCostARS)}</td></tr>` : ''}
-      <tr style="background:#1a1a2e;color:#f4c430;font-weight:bold;font-size:16px;">
-        <td>TOTAL ESTIMADO</td><td style="text-align:right;">${fmtARS(b.totalCostARS)}</td>
-      </tr>
-    </table>
-
-    ${b.annualSavingsARS ? `
-    <table width="100%" cellpadding="8" cellspacing="0" style="border:1px solid #eee;border-radius:8px;font-size:14px;margin-top:12px;">
-      <tr style="background:#f9f9f9;"><td colspan="2" style="font-weight:bold;font-size:15px;color:#1a1a2e;">Ahorro Estimado</td></tr>
-      <tr><td style="color:#777;">Ahorro anual</td><td style="text-align:right;color:#2a9d2a;font-weight:bold;">${fmtARS(b.annualSavingsARS)}</td></tr>
-      ${b.paybackYears ? `<tr><td style="color:#777;">Recupero de inversion</td><td style="text-align:right;font-weight:500;">${b.paybackYears} anos</td></tr>` : ''}
+    ${b.systemType ? `
+    <table width="100%" cellpadding="8" cellspacing="0" style="border:1px solid #eee;border-radius:8px;font-size:14px;margin-bottom:16px;">
+      <tr style="background:#f9f9f9;"><td colspan="2" style="font-weight:bold;font-size:15px;color:#171a20;">Sistema Calculado</td></tr>
+      <tr><td style="color:#777;">Tipo</td><td style="font-weight:500;">${escHtml(b.systemTypeLabel || b.systemType)}</td></tr>
+      ${b.province ? `<tr><td style="color:#777;">Ubicacion</td><td>${escHtml(b.province)} (${b.hsp || '-'} HSP)</td></tr>` : ''}
+      ${b.monthlyKwh ? `<tr><td style="color:#777;">Consumo</td><td>${b.monthlyKwh} kWh/mes</td></tr>` : ''}
+      ${b.systemKwp ? `<tr><td style="color:#777;">Potencia</td><td>${Number(b.systemKwp).toFixed(1)} kWp</td></tr>` : ''}
+      ${b.numPanels ? `<tr><td style="color:#777;">Paneles</td><td>${b.numPanels}x ${escHtml(b.panelName || '')}</td></tr>` : ''}
+      ${b.inverterInfo ? `<tr><td style="color:#777;">Inversor</td><td>${escHtml(b.inverterInfo)}</td></tr>` : ''}
+      ${b.batteryCount > 0 ? `<tr><td style="color:#777;">Baterias</td><td>${b.batteryCount}x Pylontech US5000</td></tr>` : ''}
+      ${b.structureInfo ? `<tr><td style="color:#777;">Estructura</td><td>${escHtml(b.structureInfo)}</td></tr>` : ''}
+      ${b.coveragePercent ? `<tr><td style="color:#777;">Cobertura</td><td>${Math.round(b.coveragePercent)}%</td></tr>` : ''}
     </table>` : ''}
 
-    <div style="margin-top:20px;padding:16px;background:#fff8e1;border:1px solid #f4c430;border-radius:8px;">
-      <p style="margin:0 0 8px;font-weight:bold;font-size:14px;color:#1a1a2e;">Presupuesto Preliminar Estimativo</p>
-      <p style="margin:0 0 8px;font-size:13px;color:#555;">Nota importante: Los valores y condiciones de esta cotizacion son de caracter orientativo y estan sujetos a modificaciones tras la realizacion de la visita tecnica en el domicilio.</p>
-      <p style="margin:0 0 4px;font-size:13px;font-weight:bold;color:#1a1a2e;">Condiciones del Servicio</p>
-      <p style="margin:0 0 8px;font-size:13px;color:#555;">Ubicacion de los paneles: Se definira de manera definitiva durante la inspeccion tecnica presencial. Garantia: 12 meses de cobertura sobre la instalacion.</p>
-      <p style="margin:0 0 4px;font-size:13px;font-weight:bold;color:#1a1a2e;">Exclusiones del Presupuesto</p>
-      <ul style="margin:0;padding-left:20px;font-size:13px;color:#555;">
-        <li>Gestion y tramites para la solicitud del medidor bidireccional.</li>
-        <li>Adecuaciones, reformas o modificaciones en la acometida o el pilar del medidor.</li>
-      </ul>
+    <div style="margin-bottom:16px;padding:20px;background:#fff8e1;border:2px solid #e68a00;border-radius:10px;text-align:center;">
+      <p style="margin:0 0 4px;font-size:12px;color:#777;text-transform:uppercase;letter-spacing:1px;">Inversion Total</p>
+      <p style="margin:0;font-size:28px;font-weight:bold;color:#171a20;">${fmtARS(b.totalCostARS)}</p>
+      <p style="margin:4px 0 0;font-size:12px;color:#888;">IVA incluido</p>
     </div>
 
-    <div style="margin-top:24px;text-align:center;">
-      <a href="https://wa.me/5491155881126?text=${encodeURIComponent('Hola, recibí mi presupuesto solar y me gustaría avanzar.')}" style="display:inline-block;padding:12px 28px;background:#25d366;color:#fff;text-decoration:none;border-radius:8px;font-weight:bold;font-size:15px;">Contactar por WhatsApp</a>
-    </div>
+    ${b.monthlySavingsARS ? `
+    <table width="100%" cellpadding="8" cellspacing="0" style="border:1px solid #eee;border-radius:8px;font-size:14px;margin-bottom:16px;">
+      <tr style="background:#f9f9f9;"><td colspan="2" style="font-weight:bold;font-size:15px;color:#171a20;">Ahorro Estimado</td></tr>
+      <tr><td style="color:#777;">Generación mensual</td><td style="font-weight:500;">${Math.round(b.monthlyGenerationKwh || 0)} kWh</td></tr>
+      <tr><td style="color:#777;">Tarifa cliente</td><td style="font-weight:500;">${fmtARS(b.pricePerKwh)}/kWh</td></tr>
+      <tr><td style="color:#777;">Ahorro mensual</td><td style="color:#00a650;font-weight:bold;">${fmtARS(b.monthlySavingsARS)}</td></tr>
+      ${b.paybackYears ? `<tr><td style="color:#777;">Recupero</td><td style="font-weight:500;">${b.paybackYears} años</td></tr>` : ''}
+    </table>` : ''}
+
+    ${b.totalCostARS ? `
+    <table width="100%" cellpadding="8" cellspacing="0" style="border:1px solid #eee;border-radius:8px;font-size:14px;">
+      <tr style="background:#f9f9f9;"><td colspan="2" style="font-weight:bold;font-size:15px;color:#171a20;">Desglose Costos</td></tr>
+      <tr><td style="color:#777;">Paneles</td><td style="text-align:right;">${fmtARS(b.panelCostARS)}</td></tr>
+      <tr><td style="color:#777;">Inversor</td><td style="text-align:right;">${fmtARS(b.inverterCostARS)}</td></tr>
+      <tr><td style="color:#777;">Estructura</td><td style="text-align:right;">${fmtARS(b.structureCostARS)}</td></tr>
+      ${b.batteryCostARS > 0 ? `<tr><td style="color:#777;">Baterias</td><td style="text-align:right;">${fmtARS(b.batteryCostARS)}</td></tr>` : ''}
+      <tr><td style="color:#777;">Instalación</td><td style="text-align:right;">${fmtARS(b.installCostARS)}</td></tr>
+      <tr style="border-top:2px solid #e68a00;"><td style="font-weight:bold;">TOTAL</td><td style="text-align:right;font-weight:bold;">${fmtARS(b.totalCostARS)}</td></tr>
+    </table>` : ''}
   </td></tr>
 
-  <tr><td style="background:#1a1a2e;padding:16px;text-align:center;">
-    <p style="color:#888;font-size:12px;margin:0;">Navimaq Solar &mdash; Energia renovable para Argentina</p>
-    <p style="color:#666;font-size:11px;margin:4px 0 0;">ventas@navimaqsolar.com.ar</p>
+  <tr><td style="background:#171a20;padding:16px;text-align:center;">
+    <p style="color:#888;font-size:12px;margin:0;">Navimaq Solar — Notificacion automatica del calculador</p>
   </td></tr>
 </table>
 </body>
 </html>`;
 
-  // 3. Send email via Resend
+  // 3. Send internal notification to ventas@navimaxsolar.com.ar
   let emailSent = false;
   try {
+    const attachments = [];
+
+    // Adjuntar factura del cliente si existe
+    if (billImage) {
+      attachments.push({
+        filename: `factura-${name.replace(/\s+/g, '-').toLowerCase()}.jpg`,
+        content: billImage,
+      });
+    }
+
     const emailRes = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -144,10 +149,10 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         from: 'Navimaq Solar <ventas@navimaqsolar.com.ar>',
-        to: [email],
-        bcc: ['ventas@navimaqsolar.com.ar'],
-        subject: `Tu presupuesto solar - ${b.numPanels || ''} paneles ${b.systemType || ''}`.trim(),
+        to: ['ventas@navimaqsolar.com.ar'],
+        subject: `Nueva consulta: ${escHtml(name)} — ${b.numPanels || '?'} paneles ${b.systemTypeLabel || b.systemType || ''}`.trim(),
         html: emailHtml,
+        ...(attachments.length > 0 ? { attachments } : {}),
       }),
     });
 

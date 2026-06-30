@@ -4,17 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Calculadora Solar Argentina — Navimaq | Calcula tu ahorro</title>
-  <meta name="description" content="Calcula cuanto podes ahorrar con energia solar en Argentina. Subi tu factura de luz y obtene un presupuesto personalizado con paneles, inversores y baterias. 150+ sistemas instalados.">
-  <meta name="keywords" content="energia solar argentina, paneles solares, calculadora solar, ahorro energia, presupuesto solar, navimaq, ley 27424">
+  <meta name="description" content="Calcula cuanto podes ahorrar con energía solar en Argentina. Subi tu factura de luz y obtene un presupuesto personalizado con paneles, inversores y baterias. 150+ sistemas instalados.">
+  <meta name="keywords" content="energía solar argentina, paneles solares, calculadora solar, ahorro energía, presupuesto solar, navimaq, ley 27424">
   <meta property="og:type" content="website">
   <meta property="og:title" content="Calculadora Solar Argentina — Navimaq">
-  <meta property="og:description" content="Subi tu factura de luz y calcula cuanto ahorrarias con energia solar. Presupuesto automatico con IA.">
+  <meta property="og:description" content="Subi tu factura de luz y calcula cuanto ahorrarias con energía solar. Presupuesto automatico con IA.">
   <meta property="og:url" content="https://solar-nav.vercel.app/">
   <meta property="og:site_name" content="Navimaq Solar">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Calculadora Solar Argentina — Navimaq">
   <meta name="twitter:description" content="Calcula tu ahorro solar en 2 minutos. Subi tu factura y obtene presupuesto.">
-  <meta name="theme-color" content="#00d4aa">
+  <meta name="theme-color" content="#e68a00">
   <link rel="canonical" href="https://solar-nav.vercel.app/">
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
@@ -26,7 +26,7 @@
     <div class="logo"><img src="/img/navimaq-logo-nq.png" alt="Navimaq Solar" class="logo-img"> SOLAR <span>CALCULATOR</span></div>
     <nav>
       <a href="#calculator">Calculadora</a>
-      <a href="#products">Productos</a>
+      <a href="#testimonials">Clientes</a>
       <a href="/admin">Admin</a>
     </nav>
   </header>
@@ -48,7 +48,7 @@
       </div>
       <div class="hero-stat">
         <div class="hero-stat-value">Ley 27.424</div>
-        <div class="hero-stat-label">Generacion distribuida</div>
+        <div class="hero-stat-label">Generación distribuida</div>
       </div>
     </div>
   </section>
@@ -92,7 +92,7 @@
         </select>
       </div>
       <div id="hsp-info" style="font-size:0.85rem; color:var(--text-muted); display:none;">
-        <span data-tooltip="Horas Solar Pico: promedio de horas diarias con radiacion equivalente a 1000W/m2. Determina cuanta energia genera tu sistema.">Horas Solar Pico</span> promedio: <strong id="hsp-value" style="color:var(--accent)"></strong> <span data-tooltip="Horas Solar Pico por dia — la cantidad de horas equivalentes de sol pleno que recibe tu ubicacion.">HSP/dia</span>
+        <span data-tooltip="Horas Solar Pico: promedio de horas diarias con radiacion equivalente a 1000W/m2. Determina cuanta energía genera tu sistema.">Horas Solar Pico</span> promedio: <strong id="hsp-value" style="color:var(--accent)"></strong> <span data-tooltip="Horas Solar Pico por dia — la cantidad de horas equivalentes de sol pleno que recibe tu ubicacion.">HSP/dia</span>
       </div>
     </div>
 
@@ -135,8 +135,8 @@
         <!-- Phase type question (shown after bill analysis for T1) -->
         <div id="phase-question" class="phase-question" style="display:none; margin-top:1rem;">
           <div class="cost-breakdown" style="border:1px solid var(--accent);">
-            <h3 style="color:var(--accent);">Tu instalacion es monofasica o trifasica?</h3>
-            <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:0.8rem;">Esto determina el tipo de inversor. Si no sabes, generalmente las casas son monofasicas.</p>
+            <h3 style="color:var(--accent);">Tu instalación es monofásica o trifásica?</h3>
+            <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:0.8rem;">Esto determina el tipo de inversor. Si no sabes, generalmente las casas son monofásicas.</p>
             <div class="mode-selector">
               <button class="mode-btn active" id="phase-mono" onclick="setPhaseType('mono')">
                 <span class="mode-icon">&#9889;</span>
@@ -173,7 +173,7 @@
 
         <div id="mode-kwh">
           <div class="form-group">
-            <label>Consumo mensual en <span data-tooltip="Kilovatios-hora: unidad de energia electrica. Lo encontras en tu factura de luz.">kWh</span></label>
+            <label>Consumo mensual en <span data-tooltip="Kilovatios-hora: unidad de energía electrica. Lo encontras en tu factura de luz.">kWh</span></label>
             <input type="number" id="input-kwh" placeholder="Ej: 518" min="10" max="500000">
           </div>
         </div>
@@ -194,7 +194,7 @@
 
         <div id="manual-phase-question" style="margin-top:0.8rem;">
           <div class="form-group">
-            <label>Tipo de instalacion</label>
+            <label>Tipo de instalación</label>
             <div class="mode-selector" style="margin-top:0.3rem;">
               <button class="mode-btn active" id="manual-phase-mono" onclick="setPhaseType('mono')">
                 <span class="mode-title">Monofasica (220V)</span>
@@ -218,7 +218,7 @@
         <button class="mode-btn active" onclick="setSystemType('ongrid')" id="sys-ongrid">
           <span class="mode-icon">&#9889;</span>
           <span class="mode-title">On-Grid</span>
-          <span class="mode-desc">Conectado a red. Menor costo, mejor <span data-tooltip="Retorno sobre la inversion: cuanto ganancia genera tu sistema respecto a lo que invertiste.">ROI</span>. <span data-tooltip="Ley 27.424 de Generacion Distribuida: permite inyectar excedente de energia solar a la red y recibir credito en tu factura.">Ley 27.424</span></span>
+          <span class="mode-desc">Conectado a red. Menor costo, mejor <span data-tooltip="Retorno sobre la inversión: cuanto ganancia genera tu sistema respecto a lo que invertiste.">ROI</span>. <span data-tooltip="Ley 27.424 de Generación Distribuida: permite inyectar excedente de energía solar a la red y recibir credito en tu factura.">Ley 27.424</span></span>
         </button>
         <button class="mode-btn" onclick="setSystemType('hybrid')" id="sys-hybrid">
           <span class="mode-icon">&#128267;</span>
@@ -235,7 +235,7 @@
       <div id="battery-options" style="display:none;">
         <input type="hidden" id="battery-type" value="litio">
         <div class="form-group">
-          <label>Autonomia: <strong id="autonomy-val">24</strong> horas</label>
+          <label>Autonomía: <strong id="autonomy-val">24</strong> horas</label>
           <input type="range" id="autonomy-hours" min="6" max="72" value="24" step="6" oninput="document.getElementById('autonomy-val').textContent=this.value">
           <span style="font-size:0.75rem; color:var(--text-muted);">Horas de respaldo con baterias Pylontech LiFePO4</span>
         </div>
@@ -305,7 +305,7 @@
 
     <!-- Calculate Button -->
     <button class="btn btn-primary" onclick="runCalculation()" id="calc-btn">
-      Calcular ahorro solar
+      Cotiza tu sistema
     </button>
 
     <!-- Analysis Loading Animation -->
@@ -359,76 +359,61 @@
           <span id="r-panel-rec" style="font-size:0.75rem; color:var(--text-muted); margin-left:0.5rem;"></span>
         </div>
 
-        <!-- Bill comparison before/after -->
-        <div class="bill-comparison">
-          <h3>Tu factura antes y despues</h3>
-          <div class="bill-compare-row">
-            <div class="bill-box bill-before">
-              <div class="bill-label">Hoy pagas</div>
-              <div class="bill-amount" id="r-bill-before">-</div>
-              <div class="bill-sub">por mes</div>
+        <!-- Ahorro por generación solar (P x Q) -->
+        <div class="cost-breakdown" style="border-color:var(--success); text-align:center;">
+          <h3 style="color:var(--success);">Ahorro por generación solar</h3>
+          <div class="bill-compare-row" style="justify-content:center; gap:1rem; flex-wrap:wrap;">
+            <div class="bill-box" style="flex:1; min-width:120px;">
+              <div class="bill-label">Generación mensual</div>
+              <div class="bill-amount" id="r-gen-month-kwh" style="color:var(--accent);">-</div>
+              <div class="bill-sub">kWh/mes</div>
             </div>
-            <div class="bill-arrow">&#10132;</div>
-            <div class="bill-box bill-after">
-              <div class="bill-label">Con solar</div>
-              <div class="bill-amount" id="r-bill-after">-</div>
-              <div class="bill-sub">por mes</div>
+            <div class="bill-arrow" style="font-size:1.5rem; align-self:center;">x</div>
+            <div class="bill-box" style="flex:1; min-width:120px;">
+              <div class="bill-label">Costo variable energía</div>
+              <div class="bill-amount" id="r-cost-kwh" style="color:var(--text);">-</div>
+              <div class="bill-sub">$/kWh</div>
             </div>
-            <div class="bill-box bill-savings">
-              <div class="bill-label">Ahorras</div>
-              <div class="bill-amount" id="r-bill-pct">-</div>
-              <div class="bill-sub" id="r-bill-save-ars">por mes</div>
+            <div class="bill-arrow" style="font-size:1.5rem; align-self:center;">=</div>
+            <div class="bill-box bill-savings" style="flex:1; min-width:120px;">
+              <div class="bill-label">Ahorro mensual</div>
+              <div class="bill-amount" id="r-pxq-savings" style="color:var(--success);">-</div>
+              <div class="bill-sub">por mes</div>
             </div>
           </div>
         </div>
+        <!-- Hidden elements for JS compatibility -->
+        <span id="r-bill-before" style="display:none;"></span>
+        <span id="r-bill-after" style="display:none;"></span>
+        <span id="r-bill-pct" style="display:none;"></span>
+        <span id="r-bill-save-ars" style="display:none;"></span>
 
-        <!-- Grafico generacion mensual -->
+        <!-- Gráfico generación mensual -->
         <div class="chart-container">
-          <h3>Generacion mensual vs Consumo</h3>
+          <h3>Generación mensual vs Consumo</h3>
           <canvas id="chart-monthly"></canvas>
         </div>
 
-        <!-- Costos: donut + desglose -->
-        <div class="cost-section">
-          <div class="cost-donut-container">
-            <h3>Distribucion de costos</h3>
-            <canvas id="chart-costs"></canvas>
-          </div>
-          <div class="cost-breakdown cost-detail-container">
-            <h3>Desglose de costos</h3>
-            <div class="cost-row">
-              <span>Paneles (<span id="r-panel-detail"></span>)</span>
-              <span id="r-cost-panels">-</span>
-            </div>
-            <div class="cost-row">
-              <span>Inversor (<span id="r-inverter-detail"></span>)</span>
-              <span id="r-cost-inverter">-</span>
-            </div>
-            <div class="cost-row" id="r-battery-cost-row" style="display:none;">
-              <span>Baterias (<span id="r-battery-detail"></span>)</span>
-              <span id="r-cost-battery">-</span>
-            </div>
-            <div class="cost-row">
-              <span>Estructura de montaje</span>
-              <span id="r-cost-structure">-</span>
-            </div>
-            <div class="cost-row">
-              <span>Instalacion y mano de obra</span>
-              <span id="r-cost-install">-</span>
-            </div>
-            <div class="cost-row" style="font-weight:700; font-size:1.1rem;">
-              <span>INVERSION TOTAL</span>
-              <span id="r-cost-total">-</span>
-            </div>
-          </div>
+        <!-- Inversion total -->
+        <div class="cost-breakdown" style="text-align:center; border-color:var(--accent);">
+          <h3 style="font-size:0.8rem; text-transform:uppercase; letter-spacing:1px; color:var(--text-muted); margin-bottom:0.5rem;">Inversion total</h3>
+          <div id="r-cost-total" style="font-size:2.2rem; font-weight:800; color:var(--text);">-</div>
+          <p style="font-size:0.8rem; color:var(--text-muted); margin-top:0.5rem;">IVA incluido &mdash; Incluye equipamiento, estructura e instalación</p>
         </div>
+        <!-- Hidden elements for JS compatibility -->
+        <span id="r-panel-detail" style="display:none;"></span>
+        <span id="r-cost-panels" style="display:none;"></span>
+        <span id="r-inverter-detail" style="display:none;"></span>
+        <span id="r-cost-inverter" style="display:none;"></span>
+        <span id="r-battery-cost-row" style="display:none;"><span id="r-battery-detail"></span><span id="r-cost-battery"></span></span>
+        <span id="r-cost-structure" style="display:none;"></span>
+        <span id="r-cost-install" style="display:none;"></span>
+        <canvas id="chart-costs" style="display:none;"></canvas>
 
-        <!-- Grafico proyeccion 25 anos -->
-        <div class="chart-container">
-          <h3>Proyeccion a 25 años</h3>
-          <p class="chart-subtitle">Con degradacion de paneles (<span id="r-degradation">0.5</span>%/año), inflacion tarifaria (<span id="r-inflation">30</span>%/año) y reemplazo de inversor</p>
-          <canvas id="chart-projection"></canvas>
-        </div>
+        <!-- Hidden elements for JS compatibility -->
+        <span id="r-degradation" style="display:none;">0.5</span>
+        <span id="r-inflation" style="display:none;">30</span>
+        <canvas id="chart-projection" style="display:none;"></canvas>
 
         <!-- Savings summary -->
         <div class="results-grid">
@@ -436,17 +421,9 @@
             <div class="value" id="r-save-month">-</div>
             <div class="label">Ahorro mensual</div>
           </div>
-          <div class="result-card green">
-            <div class="value" id="r-save-year">-</div>
-            <div class="label">Ahorro anual</div>
-          </div>
           <div class="result-card gold">
             <div class="value" id="r-payback">-</div>
-            <div class="label">Recupero inversion</div>
-          </div>
-          <div class="result-card highlight">
-            <div class="value" id="r-roi">-</div>
-            <div class="label"><span data-tooltip="Retorno sobre la inversion a 25 años, considerando degradacion de paneles e inflacion tarifaria.">ROI</span> a 25 años</div>
+            <div class="label">Recupero inversión</div>
           </div>
         </div>
 
@@ -479,7 +456,7 @@
           </div>
           <div class="result-card">
             <div class="value" id="r-trees" style="color:var(--success);">-</div>
-            <div class="label">Arboles equivalentes</div>
+            <div class="label">Árboles equivalentes</div>
           </div>
           <div class="result-card">
             <div class="value" id="r-gen-kwh">-</div>
@@ -497,12 +474,12 @@
           <div id="proposal-summary" class="proposal-summary"></div>
           <div class="proposal-timeline">
             <div class="timeline-item">
-              <div class="tl-label">Instalacion estimada</div>
+              <div class="tl-label">Instalación estimada</div>
               <div class="tl-value">2-4 semanas</div>
             </div>
             <div class="timeline-item">
               <div class="tl-label">Tramite Ley 27.424</div>
-              <div class="tl-value">~30 dias</div>
+              <div class="tl-value">~30 días</div>
             </div>
           </div>
         </div>
@@ -533,10 +510,10 @@
           <p>Nota importante: Los valores y condiciones de esta cotizacion son de caracter orientativo y estan sujetos a modificaciones tras la realizacion de la visita tecnica en el domicilio.</p>
           <p><strong>Condiciones del Servicio</strong><br>
           Ubicacion de los paneles: Se definira de manera definitiva durante la inspeccion tecnica presencial.<br>
-          Garantia: 12 meses de garantia de cobertura sobre la instalacion.</p>
+          Garantía: 12 meses de garantía de cobertura sobre la instalación.</p>
           <p><strong>Exclusiones del Presupuesto</strong></p>
           <ul>
-            <li>Gestion y tramites para la solicitud del medidor bidireccional.</li>
+            <li>Gestion y trámites para la solicitud del medidor bidireccional.</li>
             <li>Adecuaciones, reformas o modificaciones en la acometida o el pilar del medidor.</li>
           </ul>
         </div>
@@ -554,20 +531,6 @@
     </div>
   </section>
 
-  <!-- Products -->
-  <section class="products-section" id="products">
-    <h2>Catalogo de productos</h2>
-    <div class="product-search-bar">
-      <input type="text" id="product-search" placeholder="Buscar productos..." oninput="searchProducts(this.value)">
-      <select id="product-sort" onchange="sortProducts(this.value)">
-        <option value="default">Ordenar por defecto</option>
-        <option value="price-asc">Precio: menor a mayor</option>
-        <option value="price-desc">Precio: mayor a menor</option>
-      </select>
-    </div>
-    <div class="product-grid" id="product-grid"></div>
-  </section>
-
   <!-- Testimonials -->
   <section class="testimonials-section" id="testimonials">
     <h2>Lo que dicen nuestros clientes</h2>
@@ -580,12 +543,12 @@
       </div>
       <div class="testimonial-card">
         <div class="testi-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
-        <div class="testi-text">Tenia miedo de que no rindiera, pero en 3 anos ya recupere la inversion. Ahora genero mas de lo que consumo y me pagan por inyectar a la red.</div>
+        <div class="testi-text">Tenía miedo de que no rindiera, pero en 3 años ya recupere la inversión. Ahora genero mas de lo que consumo y me pagan por inyectar a la red.</div>
         <div class="testi-author"><strong>Maria L.</strong> — San Juan</div>
       </div>
       <div class="testimonial-card">
         <div class="testi-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
-        <div class="testi-text">Sistema hibrido para mi campo en Cordoba. Cuando se corta la luz, mis heladeras y luces siguen funcionando. Impecable la instalacion.</div>
+        <div class="testi-text">Sistema hibrido para mi campo en Cordoba. Cuando se corta la luz, mis heladeras y luces siguen funcionando. Impecable la instalación.</div>
         <div class="testi-author"><strong>Roberto F.</strong> — Cordoba</div>
       </div>
       <div class="testimonial-card">
@@ -602,8 +565,8 @@
   </a>
 
   <footer>
-    <img src="/img/navimaq-logo-nq.png" alt="Navimaq Solar" style="height:40px; margin-bottom:0.5rem; filter:brightness(0.9);">
-    <p>SOLAR CALCULATOR &mdash; Calculadora de energia solar para Argentina</p>
+    <img src="/img/navimaq-logo-nq.png" alt="Navimaq Solar" style="height:40px; margin-bottom:0.5rem;">
+    <p>SOLAR CALCULATOR &mdash; Calculadora de energía solar para Argentina</p>
     <p style="margin-top:0.3rem;">Precios actualizados al tipo de cambio del dia. Los valores son estimativos.</p>
     <p style="margin-top:0.3rem;"><a href="https://www.navimaqsolar.com.ar/" target="_blank" style="color:var(--accent);">navimaqsolar.com.ar</a></p>
   </footer>
@@ -612,8 +575,8 @@
   <div id="lead-modal" class="lead-modal" style="display:none;">
     <div class="lead-modal-backdrop"></div>
     <div class="lead-modal-content">
-      <h3>Recibe tu presupuesto por email</h3>
-      <p>Completa tus datos para ver el resultado y recibir el presupuesto detallado en tu correo.</p>
+      <h3>Completa tus datos para ver el resultado</h3>
+      <p>Ingresa tu informacion de contacto para ver el presupuesto detallado.</p>
       <form id="lead-form" onsubmit="return false;">
         <div class="lead-field">
           <label for="lead-name">Nombre *</label>

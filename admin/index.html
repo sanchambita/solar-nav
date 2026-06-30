@@ -28,6 +28,56 @@
   <!-- Admin Panel -->
   <div class="admin-container" id="admin-panel" style="display:none;">
 
+    <!-- Dashboard (M4.2) -->
+    <div class="config-form" style="border-color: var(--gold);">
+      <h3 style="color:var(--gold);">Dashboard</h3>
+      <div class="admin-dashboard" id="admin-dashboard">
+        <div class="admin-stat">
+          <div class="stat-value" id="dash-visits">0</div>
+          <div class="stat-label">Visitas totales</div>
+        </div>
+        <div class="admin-stat">
+          <div class="stat-value" id="dash-quotes">0</div>
+          <div class="stat-label">Cotizaciones</div>
+        </div>
+        <div class="admin-stat">
+          <div class="stat-value" id="dash-pro-quotes">0</div>
+          <div class="stat-label">Cotizaciones Pro</div>
+        </div>
+        <div class="admin-stat">
+          <div class="stat-value" id="dash-top-system">-</div>
+          <div class="stat-label">Sistema mas cotizado</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quote History (M4.1) -->
+    <div class="config-form" id="history-section">
+      <h3>Historial de cotizaciones Pro</h3>
+      <div id="history-empty" style="color:var(--text-muted); font-size:0.85rem;">No hay cotizaciones guardadas.</div>
+      <div style="overflow-x:auto;">
+        <table class="quote-history-table" id="history-table" style="display:none;">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Provincia</th>
+              <th>kWh</th>
+              <th>Sistema</th>
+              <th>kWp</th>
+              <th>Total</th>
+              <th>Payback</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="history-tbody"></tbody>
+        </table>
+      </div>
+      <div style="margin-top:0.5rem; display:flex; gap:0.5rem;">
+        <button class="btn btn-secondary btn-sm" onclick="exportHistoryCSV()">Exportar CSV</button>
+        <button class="btn btn-danger btn-sm" onclick="clearHistory()">Limpiar historial</button>
+      </div>
+    </div>
+
     <!-- Config -->
     <div class="config-form">
       <h3>Configuracion general</h3>
@@ -47,17 +97,17 @@
           <input type="number" id="cfg-efficiency" step="1">
         </div>
         <div class="form-group">
-          <label>Instalacion base (USD)</label>
+          <label>Instalación base (USD)</label>
           <input type="number" id="cfg-install-base" step="10">
         </div>
       </div>
       <div class="input-row">
         <div class="form-group">
-          <label>Instalacion por panel (USD)</label>
+          <label>Instalación por panel (USD)</label>
           <input type="number" id="cfg-install-panel" step="10">
         </div>
         <div class="form-group">
-          <label>Inflacion tarifaria anual (%)</label>
+          <label>Inflación tarifaria anual (%)</label>
           <input type="number" id="cfg-tariff-inflation" step="1" min="0" max="100">
         </div>
       </div>
@@ -67,7 +117,7 @@
           <input type="number" id="cfg-injection-factor" step="1" min="0" max="100">
         </div>
         <div class="form-group">
-          <label>Degradacion paneles (%/año)</label>
+          <label>Degradación paneles (%/año)</label>
           <input type="number" id="cfg-degradation" step="0.1" min="0" max="5">
         </div>
       </div>
@@ -111,6 +161,28 @@
         <button class="btn btn-secondary btn-sm" onclick="document.getElementById('import-file').click()">Importar JSON</button>
         <input type="file" id="import-file" accept=".json" style="display:none" onchange="importProducts(event)">
       </div>
+    </div>
+
+    <!-- Structure Kit Builder (M4.3) -->
+    <div class="config-form" style="border-color: var(--success);">
+      <h3 style="color:var(--success);">Kit de Estructura</h3>
+      <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:1rem;">Calcula automaticamente la estructura necesaria segun cantidad de paneles y tipo de techo.</p>
+      <div class="input-row">
+        <div class="form-group">
+          <label>Cantidad de paneles</label>
+          <input type="number" id="kit-panels" value="8" min="1" step="1">
+        </div>
+        <div class="form-group">
+          <label>Tipo de techo</label>
+          <select id="kit-roof">
+            <option value="chapa">Chapa (coplanar)</option>
+            <option value="teja">Teja (coplanar)</option>
+            <option value="losa">Losa (inclinada)</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="calculateKit()">Calcular kit</button>
+      <div id="kit-result"></div>
     </div>
 
     <!-- Calculador Pro -->
@@ -250,10 +322,27 @@
     </div>
   </div>
 
+  <!-- Toast container -->
+  <div class="toast-container" id="toast-container"></div>
+
   <script src="/js/data.js"></script>
   <script src="/js/calculator.js"></script>
   <script>
     const ADMIN_PASS = 'solarnav2026';
+
+    // Toast for admin
+    function showToast(msg, type) {
+      const container = document.getElementById('toast-container');
+      if (!container) return;
+      const toast = document.createElement('div');
+      toast.className = 'toast toast-' + (type || 'info');
+      toast.textContent = msg;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.classList.add('removing');
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    }
 
     function adminLogin() {
       if (document.getElementById('admin-pass').value === ADMIN_PASS) {
@@ -261,7 +350,7 @@
         document.getElementById('admin-panel').style.display = 'block';
         loadAdmin();
       } else {
-        alert('Contrasena incorrecta');
+        showToast('Contrasena incorrecta', 'error');
       }
     }
 
@@ -278,6 +367,8 @@
       document.getElementById('cfg-whatsapp').value = cfg.whatsappNumber || '5491155881126';
       renderProductTable();
       loadProSelectors();
+      loadDashboard();
+      loadHistory();
     }
 
     function saveAdminConfig() {
@@ -293,10 +384,127 @@
       cfg.whatsappNumber = document.getElementById('cfg-whatsapp').value.trim();
       saveConfig(cfg);
 
-      alert('Configuracion guardada');
+      showToast('Configuracion guardada', 'success');
       renderProductTable();
     }
 
+    // ====== DASHBOARD (M4.2) ======
+    function loadDashboard() {
+      const visits = parseInt(localStorage.getItem('solarnav_visits') || '0');
+      const quotes = parseInt(localStorage.getItem('solarnav_quotes') || '0');
+      const history = getQuoteHistory();
+
+      document.getElementById('dash-visits').textContent = visits;
+      document.getElementById('dash-quotes').textContent = quotes;
+      document.getElementById('dash-pro-quotes').textContent = history.length;
+
+      // Top system type
+      if (history.length > 0) {
+        const typeCounts = {};
+        history.forEach(q => {
+          typeCounts[q.systemType] = (typeCounts[q.systemType] || 0) + 1;
+        });
+        const topType = Object.entries(typeCounts).sort((a, b) => b[1] - a[1])[0];
+        const typeLabels = { ongrid: 'On-Grid', hybrid: 'Hibrido', offgrid: 'Off-Grid' };
+        document.getElementById('dash-top-system').textContent = typeLabels[topType[0]] || topType[0];
+      }
+    }
+
+    // ====== QUOTE HISTORY (M4.1) ======
+    function getQuoteHistory() {
+      try {
+        return JSON.parse(localStorage.getItem('solarnav_pro_history') || '[]');
+      } catch { return []; }
+    }
+
+    function saveQuoteToHistory(result) {
+      const history = getQuoteHistory();
+      history.unshift({
+        id: Date.now(),
+        date: new Date().toISOString(),
+        province: result.province,
+        monthlyKwh: result.monthlyKwh,
+        systemType: result.systemType,
+        systemTypeLabel: result.systemTypeLabel,
+        systemKwp: result.systemKwp,
+        numPanels: result.numPanels,
+        totalCostARS: result.totalCostARS,
+        paybackYears: result.paybackYears,
+        coveragePercent: result.coveragePercent,
+        // Store full result for re-opening
+        fullResult: result,
+      });
+      // Keep max 50 entries
+      if (history.length > 50) history.length = 50;
+      localStorage.setItem('solarnav_pro_history', JSON.stringify(history));
+    }
+
+    function loadHistory() {
+      const history = getQuoteHistory();
+      const table = document.getElementById('history-table');
+      const tbody = document.getElementById('history-tbody');
+      const empty = document.getElementById('history-empty');
+
+      if (history.length === 0) {
+        table.style.display = 'none';
+        empty.style.display = 'block';
+        return;
+      }
+
+      table.style.display = 'table';
+      empty.style.display = 'none';
+      tbody.innerHTML = '';
+
+      history.forEach(q => {
+        const date = new Date(q.date).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td>' + date + '</td>'
+          + '<td>' + (q.province || '-') + '</td>'
+          + '<td>' + (q.monthlyKwh || '-') + '</td>'
+          + '<td>' + (q.systemTypeLabel || '-') + '</td>'
+          + '<td>' + (q.systemKwp ? q.systemKwp.toFixed(1) : '-') + '</td>'
+          + '<td style="color:var(--gold)">' + (q.totalCostARS ? formatARS(q.totalCostARS) : '-') + '</td>'
+          + '<td>' + (q.paybackYears && q.paybackYears < 50 ? q.paybackYears + ' a' : 'N/A') + '</td>'
+          + '<td><button class="btn btn-secondary btn-sm" onclick="reopenQuote(' + q.id + ')">Ver</button></td>';
+        tbody.appendChild(tr);
+      });
+    }
+
+    function reopenQuote(id) {
+      const history = getQuoteHistory();
+      const quote = history.find(q => q.id === id);
+      if (!quote || !quote.fullResult) { showToast('No se encontro la cotizacion', 'error'); return; }
+      renderProResults(quote.fullResult);
+      document.getElementById('pro-results').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function clearHistory() {
+      if (!confirm('Limpiar todo el historial?')) return;
+      localStorage.removeItem('solarnav_pro_history');
+      loadHistory();
+      loadDashboard();
+      showToast('Historial limpiado', 'success');
+    }
+
+    function exportHistoryCSV() {
+      const history = getQuoteHistory();
+      if (history.length === 0) { showToast('No hay datos para exportar', 'error'); return; }
+
+      let csv = 'Fecha,Provincia,kWh,Sistema,kWp,Paneles,Total ARS,Payback,Cobertura\n';
+      history.forEach(q => {
+        const date = new Date(q.date).toLocaleDateString('es-AR');
+        csv += [date, q.province, q.monthlyKwh, q.systemTypeLabel, q.systemKwp?.toFixed(1), q.numPanels, Math.round(q.totalCostARS), q.paybackYears, Math.round(q.coveragePercent) + '%'].join(',') + '\n';
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'cotizaciones-solar-nav.csv';
+      a.click();
+      showToast('CSV exportado', 'success');
+    }
+
+    // ====== PRODUCTS TABLE ======
     function renderProductTable() {
       const tbody = document.getElementById('products-tbody');
       const products = getProducts();
@@ -387,6 +595,7 @@
       saveProducts(products);
       renderProductTable();
       hideProductForm();
+      showToast('Producto guardado', 'success');
     }
 
     function deleteProduct(id) {
@@ -394,12 +603,14 @@
       const products = getProducts().filter(p => p.id !== id);
       saveProducts(products);
       renderProductTable();
+      showToast('Producto eliminado', 'success');
     }
 
     function resetProducts() {
       if (!confirm('Restaurar productos a los valores por defecto? Se perderan los cambios.')) return;
       localStorage.removeItem('solarnav_products');
       renderProductTable();
+      showToast('Productos restaurados', 'success');
     }
 
     function exportProducts() {
@@ -409,6 +620,7 @@
       a.href = URL.createObjectURL(blob);
       a.download = 'solar-nav-products.json';
       a.click();
+      showToast('Productos exportados', 'success');
     }
 
     function importProducts(event) {
@@ -421,21 +633,42 @@
           if (Array.isArray(products)) {
             saveProducts(products);
             renderProductTable();
-            alert('Productos importados: ' + products.length);
+            showToast('Productos importados: ' + products.length, 'success');
           } else {
-            alert('Formato invalido');
+            showToast('Formato invalido', 'error');
           }
         } catch {
-          alert('Error al leer el archivo');
+          showToast('Error al leer el archivo', 'error');
         }
       };
       reader.readAsText(file);
     }
 
+    // ====== STRUCTURE KIT BUILDER (M4.3) ======
+    function calculateKit() {
+      const numPanels = parseInt(document.getElementById('kit-panels').value) || 8;
+      const roofType = document.getElementById('kit-roof').value;
+      const kit = autoCalculateStructure(numPanels, roofType);
+
+      const container = document.getElementById('kit-result');
+      if (kit.items.length === 0) {
+        container.innerHTML = '<div class="kit-result"><p style="color:var(--text-muted);">No se encontraron estructuras en el catalogo. Agrega productos de categoria "estructura".</p></div>';
+        return;
+      }
+
+      let html = '<div class="kit-result">';
+      html += '<h4 style="color:var(--success); margin-bottom:0.5rem;">' + kit.description + ' — ' + numPanels + ' paneles</h4>';
+      kit.items.forEach(item => {
+        html += '<div class="kit-row"><span>' + item.qty + 'x ' + item.name + '</span><span>' + formatARS(item.qty * item.unitARS) + '</span></div>';
+      });
+      html += '<div class="kit-row"><span>TOTAL ESTRUCTURA</span><span>' + formatARS(kit.totalARS) + '</span></div>';
+      html += '</div>';
+      container.innerHTML = html;
+    }
+
     // ====== CALCULADOR PRO ======
     function loadProSelectors() {
       const products = getProducts();
-      const cfg = getConfig();
 
       // Provincias
       const provSel = document.getElementById('pro-province');
@@ -532,9 +765,15 @@
       };
 
       const r = calculateSolar(params);
-      if (r.error) { alert(r.error); return; }
+      if (r.error) { showToast(r.error, 'error'); return; }
+
+      // Save to history (M4.1)
+      saveQuoteToHistory(r);
+      loadHistory();
+      loadDashboard();
 
       renderProResults(r);
+      showToast('Cotizacion calculada y guardada', 'success');
     }
 
     function renderProResults(r) {
@@ -546,10 +785,10 @@
       let html = '<h4 style="color:var(--accent); margin-bottom:0.5rem;">Resultado</h4>';
 
       html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:0.5rem;margin-bottom:1rem;">';
-      html += '<div style="background:var(--surface);padding:0.75rem;border-radius:8px;text-align:center;"><div style="font-size:1.5rem;color:var(--accent);">' + r.systemKwp.toFixed(2) + '</div><div style="font-size:0.75rem;color:var(--text-muted);">kWp</div></div>';
-      html += '<div style="background:var(--surface);padding:0.75rem;border-radius:8px;text-align:center;"><div style="font-size:1.5rem;color:var(--accent);">' + r.numPanels + '</div><div style="font-size:0.75rem;color:var(--text-muted);">Paneles</div></div>';
-      html += '<div style="background:var(--surface);padding:0.75rem;border-radius:8px;text-align:center;"><div style="font-size:1.5rem;color:var(--gold);">' + formatARS(r.totalCostARS) + '</div><div style="font-size:0.75rem;color:var(--text-muted);">Costo total</div></div>';
-      html += '<div style="background:var(--surface);padding:0.75rem;border-radius:8px;text-align:center;"><div style="font-size:1.5rem;color:var(--accent);">' + r.coveragePercent.toFixed(0) + '%</div><div style="font-size:0.75rem;color:var(--text-muted);">Cobertura</div></div>';
+      html += '<div style="background:var(--bg-card-hover);padding:0.75rem;border-radius:8px;text-align:center;"><div style="font-size:1.5rem;color:var(--accent);">' + r.systemKwp.toFixed(2) + '</div><div style="font-size:0.75rem;color:var(--text-muted);">kWp</div></div>';
+      html += '<div style="background:var(--bg-card-hover);padding:0.75rem;border-radius:8px;text-align:center;"><div style="font-size:1.5rem;color:var(--accent);">' + r.numPanels + '</div><div style="font-size:0.75rem;color:var(--text-muted);">Paneles</div></div>';
+      html += '<div style="background:var(--bg-card-hover);padding:0.75rem;border-radius:8px;text-align:center;"><div style="font-size:1.5rem;color:var(--gold);">' + formatARS(r.totalCostARS) + '</div><div style="font-size:0.75rem;color:var(--text-muted);">Costo total</div></div>';
+      html += '<div style="background:var(--bg-card-hover);padding:0.75rem;border-radius:8px;text-align:center;"><div style="font-size:1.5rem;color:var(--accent);">' + r.coveragePercent.toFixed(0) + '%</div><div style="font-size:0.75rem;color:var(--text-muted);">Cobertura</div></div>';
       html += '</div>';
 
       html += '<h4 style="margin:1rem 0 0.5rem;">Equipamiento</h4>';
@@ -578,12 +817,12 @@
         html += row('Baterias', formatARS(r.batteryCostARS));
       }
 
-      html += row('Instalacion', formatARS(r.installCostARS));
+      html += row('Instalación', formatARS(r.installCostARS));
       html += '<div style="display:flex;justify-content:space-between;padding:0.5rem 0;border-top:2px solid var(--accent);margin-top:0.5rem;font-size:1.1rem;"><strong>TOTAL</strong><strong style="color:var(--gold);">' + formatARS(r.totalCostARS) + '</strong></div>';
 
-      html += '<h4 style="margin:1rem 0 0.5rem;">Generacion y ahorro</h4>';
-      html += row('Generacion mensual', Math.round(r.monthlyGenerationKwh) + ' kWh');
-      html += row('Generacion anual', Math.round(r.annualGenerationKwh) + ' kWh');
+      html += '<h4 style="margin:1rem 0 0.5rem;">Generación y ahorro</h4>';
+      html += row('Generación mensual', Math.round(r.monthlyGenerationKwh) + ' kWh');
+      html += row('Generación anual', Math.round(r.annualGenerationKwh) + ' kWh');
       html += row('Ahorro mensual', formatARS(r.monthlySavingsARS));
       html += row('Ahorro anual', formatARS(r.annualSavingsARS));
       if (r.excessMonthlyKwh > 0) html += row('Excedente mensual', Math.round(r.excessMonthlyKwh) + ' kWh');
@@ -598,7 +837,7 @@
 
     function exportProPDF() {
       const div = document.getElementById('pro-results');
-      if (div.style.display === 'none') { alert('Primero calcula un presupuesto'); return; }
+      if (div.style.display === 'none') { showToast('Primero calcula un presupuesto', 'error'); return; }
       window.print();
     }
   </script>

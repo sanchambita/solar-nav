@@ -31,6 +31,7 @@ function calculateSolar(params) {
     panelId = null,
     inverterId = null,
     structureItems = null, // [{id, qty}]
+    billPricePerKwh = null,
   } = params;
 
   // 1. Ubicación
@@ -38,11 +39,11 @@ function calculateSolar(params) {
   if (!province) return { error: 'Provincia no encontrada' };
   const hsp = province.hsp;
 
-  // 2. Tarifa
+  // 2. Tarifa — usar precio real de factura si está disponible
   const tariff = TARIFFS.find(t => t.id === tariffId);
   if (!tariff) return { error: 'Tarifa no encontrada' };
   const tariffRange = tariff.ranges.find(r => monthlyKwh >= r.min && monthlyKwh <= r.max);
-  const pricePerKwh = tariffRange ? tariffRange.priceKwh : tariff.ranges[tariff.ranges.length - 1].priceKwh;
+  const pricePerKwh = billPricePerKwh || (tariffRange ? tariffRange.priceKwh : tariff.ranges[tariff.ranges.length - 1].priceKwh);
 
   // 3. Parámetros según tipo de sistema
   const sys = SYSTEM_DEFAULTS[systemType] || SYSTEM_DEFAULTS.ongrid;
