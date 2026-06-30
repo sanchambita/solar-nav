@@ -968,7 +968,7 @@ function renderResults(r) {
   // Hero metrics strip — with countUp animation
   animateValue(el('r-power'), r.systemKwp, 800, '', '');
   animateARS(el('r-save-month-hero'), r.monthlySavingsARS, 800);
-  el('r-payback-hero').textContent = r.paybackYears >= 50 ? 'N/A' : formatNumber(r.paybackYears) + ' años';
+  if (el('r-payback-hero')) el('r-payback-hero').textContent = r.paybackYears >= 50 ? 'N/A' : formatNumber(r.paybackYears) + ' años';
   el('r-coverage').textContent = '0%';
   animateValue(el('r-coverage'), Math.round(r.coveragePercent), 800, '', '%');
 
