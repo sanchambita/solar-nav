@@ -1100,13 +1100,10 @@ function renderProposal(r) {
   section.style.display = 'block';
 
   const coverText = r.coveragePercent >= 100 ? 'cubriendo el 100% de tu consumo' : 'cubriendo el ' + Math.round(r.coveragePercent) + '% de tu consumo';
-  const paybackText = r.paybackYears < 50 ? 'con un recupero estimado en ' + formatNumber(r.paybackYears) + ' años' : '';
-  const battText = r.systemType !== 'ongrid' ? ' Con almacenamiento de ' + r.batteryKwh + ' kWh en baterias ' + r.batteryTypeLabel + ' para ' + r.autonomyHours + ' horas de autonomía (' + r.criticalLoadWatts + 'W cargas criticas).' : '';
-  const injText = r.systemType === 'ongrid' && r.excessMonthlyKwh > 0 ? ' Bajo la Ley 27.424, el excedente de ' + Math.round(r.excessMonthlyKwh) + ' kWh/mes se inyecta a la red generando credito adicional.' : '';
+  const battText = r.systemType !== 'ongrid' ? ' Con almacenamiento de ' + r.batteryKwh + ' kWh en baterías ' + r.batteryTypeLabel + ' para ' + r.autonomyHours + ' horas de autonomía (' + r.criticalLoadWatts + 'W cargas críticas).' : '';
 
-  summary.innerHTML = 'Para tu hogar en <strong>' + esc(r.province) + '</strong> (' + r.hsp + ' HSP), recomendamos un sistema <strong>' + esc(r.systemTypeLabel) + '</strong> de <strong>' + formatNumber(r.systemKwp) + ' kWp</strong> con ' + r.numPanels + ' paneles ' + esc(r.selectedPanel) + ', ' + coverText + '. '
-    + 'Tu factura pasaria de <strong>' + formatARS(r.monthlyBillBefore) + '</strong> a <strong>' + formatARS(r.monthlyBillAfter) + '</strong> por mes, ahorrando <strong>' + Math.round(r.billReductionPct) + '%</strong>' + (paybackText ? ', ' + paybackText : '') + '.'
-    + battText + injText;
+  summary.innerHTML = 'Para tu hogar en <strong>' + esc(r.province) + '</strong> (' + r.hsp + ' HSP), recomendamos un sistema <strong>' + esc(r.systemTypeLabel) + '</strong> de <strong>' + formatNumber(r.systemKwp) + ' kWp</strong> con ' + r.numPanels + ' paneles ' + esc(r.selectedPanel) + ', ' + coverText + '.'
+    + battText;
 }
 
 // ---------- Financing Section (M2.2) ----------
