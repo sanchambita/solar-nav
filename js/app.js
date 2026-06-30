@@ -1045,23 +1045,25 @@ function renderResults(r) {
   el('r-degradation').textContent = ((cfg.panelDegradation || 0.005) * 100).toFixed(1);
   el('r-inflation').textContent = Math.round((cfg.tariffInflation || 0) * 100);
 
-  // Equipment list
-  let equipHtml = '<div class="cost-row"><span><strong>' + esc(r.numPanels + 'x') + '</strong> ' + esc(r.selectedPanel) + '</span><span>' + r.panelWatts + 'W c/u — ' + formatARS(r.panelCostARS) + '</span></div>';
+  // Equipment list — sin precios unitarios, tipografía uniforme
+  let equipHtml = '<div class="cost-row"><span><strong>' + esc(r.numPanels + 'x') + '</strong> ' + esc(r.selectedPanel) + ' — ' + r.panelWatts + 'W c/u</span></div>';
   if (r.selectedInverters.length > 0) {
     r.selectedInverters.forEach(inv => {
-      equipHtml += '<div class="cost-row"><span><strong>' + esc((inv.qty > 1 ? inv.qty + 'x ' : '')) + '</strong>' + esc(inv.name) + '</span><span>' + (inv.watts / 1000) + ' kW — ' + formatARS(inv.priceARS || 0) + '</span></div>';
+      equipHtml += '<div class="cost-row"><span><strong>' + esc((inv.qty > 1 ? inv.qty + 'x ' : '')) + '</strong>' + esc(inv.name) + ' — ' + (inv.watts / 1000) + ' kW</span></div>';
     });
   } else {
-    equipHtml += '<div class="cost-row"><span>Inversor</span><span style="color:var(--warning);">Consultar — dimensionamiento especial</span></div>';
+    equipHtml += '<div class="cost-row"><span>Inversor — Consultar dimensionamiento especial</span></div>';
   }
   if (r.batteryCount > 0 && r.selectedBattery) {
-    equipHtml += '<div class="cost-row"><span><strong>' + esc(r.batteryCount + 'x') + '</strong> ' + esc(r.selectedBattery) + '</span><span>' + r.batteryKwh + ' kWh — ' + formatARS(r.batteryCostARS) + '</span></div>';
+    equipHtml += '<div class="cost-row"><span><strong>' + esc(r.batteryCount + 'x') + '</strong> ' + esc(r.selectedBattery) + ' — ' + r.batteryKwh + ' kWh</span></div>';
   }
   if (r.structureDetail && r.structureDetail.length > 0) {
     r.structureDetail.forEach(s => {
-      equipHtml += '<div class="cost-row"><span><strong>' + esc(s.qty + 'x') + '</strong> ' + esc(s.name) + '</span><span>' + formatARS(s.totalARS) + '</span></div>';
+      equipHtml += '<div class="cost-row"><span><strong>' + esc(s.qty + 'x') + '</strong> ' + esc(s.name) + '</span></div>';
     });
   }
+  equipHtml += '<div class="cost-row"><span>Protecciones AC/DC</span></div>';
+  equipHtml += '<div class="cost-row"><span>Instalación y puesta en marcha</span></div>';
   el('r-equipment-list').innerHTML = equipHtml;
 
   // Proposal section (M2.1)
