@@ -416,10 +416,14 @@
         <canvas id="chart-projection" style="display:none;"></canvas>
 
         <!-- Savings summary -->
-        <div class="results-grid">
+        <div class="results-grid" style="grid-template-columns: repeat(3, 1fr);">
           <div class="result-card green">
             <div class="value" id="r-save-month">-</div>
             <div class="label">Ahorro mensual</div>
+          </div>
+          <div class="result-card green">
+            <div class="value" id="r-save-year">-</div>
+            <div class="label">Ahorro anual</div>
           </div>
           <div class="result-card gold">
             <div class="value" id="r-payback">-</div>

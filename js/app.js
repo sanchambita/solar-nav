@@ -1013,8 +1013,9 @@ function renderResults(r) {
   el('r-cost-install').textContent = formatARS(r.installCostARS);
   el('r-cost-total').textContent = formatARS(r.totalCostARS);
 
-  // Savings
-  el('r-save-month').textContent = formatARS(r.monthlySavingsARS);
+  // Savings — usar mismo P×Q que la sección de arriba
+  el('r-save-month').textContent = formatARS(pxqSavings);
+  el('r-save-year').textContent = formatARS(pxqSavings * 12);
   el('r-payback').textContent = r.paybackYears >= 50 ? 'N/A' : formatNumber(r.paybackYears) + ' años';
 
   // Métricas financieras (Colo)
