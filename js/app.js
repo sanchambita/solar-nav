@@ -164,6 +164,7 @@ let currentRoofType = 'chapa';
 let currentMaxPowerKw = 10;
 let currentBillData = null;
 let currentBillImage = null; // base64 de la factura subida
+let leadSubmitted = false;
 
 function setEntryMode(mode) {
   entryMode = mode;
@@ -712,8 +713,16 @@ function runAnalysisAnimation(calcParams) {
     currentResult = result;
     if (!currentPanelOverride) currentPanelOverride = null;
 
-    // Show lead capture modal before showing results
-    showLeadModal();
+    // Show lead modal only first time, then go straight to results
+    if (leadSubmitted) {
+      updateProgress(1, true);
+      updateProgress(2, true);
+      updateProgress(3, true);
+      updateProgress(4, true);
+      renderResults(currentResult);
+    } else {
+      showLeadModal();
+    }
   }, 2600);
 }
 
@@ -783,6 +792,7 @@ async function submitLead() {
   }
 
   // Show results regardless of API success
+  leadSubmitted = true;
   hideLeadModal();
   incrementQuoteCounter();
   updateProgress(1, true);
