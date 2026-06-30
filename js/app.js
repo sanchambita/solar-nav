@@ -1063,7 +1063,12 @@ function renderResults(r) {
     });
   }
   equipHtml += '<div class="cost-row"><span>Protecciones AC/DC</span></div>';
-  equipHtml += '<div class="cost-row"><span>Instalación y puesta en marcha</span></div>';
+  equipHtml += '<div class="cost-row" style="color:var(--text-muted);"><span>Instalación y puesta en marcha</span></div>';
+  equipHtml += '<div style="margin-top:1rem; padding-top:1rem; border-top:2px solid var(--accent); text-align:center;">'
+    + '<div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; color:var(--text-muted); margin-bottom:0.3rem;">Inversión estimada</div>'
+    + '<div style="font-size:1.8rem; font-weight:800; color:var(--accent);">' + formatARS(r.totalCostARS) + '</div>'
+    + '<div style="font-size:0.75rem; color:var(--text-muted);">IVA incluido</div>'
+    + '</div>';
   el('r-equipment-list').innerHTML = equipHtml;
 
   // Proposal section (M2.1)
