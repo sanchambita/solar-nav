@@ -630,10 +630,14 @@ function runCalculation() {
   const invSelVal = document.getElementById('inverter-select')?.value;
   const numPanelsInput = parseInt(document.getElementById('num-panels-override')?.value) || 0;
 
-  // Si hay factura, calcular precio real: cargo_variable_1 / consumo_kwh
+  // Si hay factura, calcular precio real: (cargo_variable_1 + cargo_variable_2) / consumo_kwh
   let billPricePerKwh = null;
-  if (currentBillData && currentBillData.cargo_variable_1 && currentBillData.consumo_kwh) {
-    billPricePerKwh = currentBillData.cargo_variable_1 / currentBillData.consumo_kwh;
+  if (currentBillData && currentBillData.consumo_kwh) {
+    const cv1 = currentBillData.cargo_variable_1 || 0;
+    const cv2 = currentBillData.cargo_variable_2 || 0;
+    if (cv1 + cv2 > 0) {
+      billPricePerKwh = (cv1 + cv2) / currentBillData.consumo_kwh;
+    }
   }
 
   const calcParams = {
