@@ -1015,7 +1015,9 @@ function renderResults(r) {
 
   // Savings — usar mismo P×Q que la sección de arriba
   el('r-save-month').textContent = formatARS(pxqSavings);
-  el('r-save-year').textContent = formatARS(pxqSavings * 12);
+  // Ahorro anual: sumar generación mes a mes × precio kWh
+  const pxqAnnual = r.monthlyGeneration.reduce((sum, m) => sum + m.kwh * r.pricePerKwh, 0);
+  el('r-save-year').textContent = formatARS(pxqAnnual);
   el('r-payback').textContent = r.paybackYears >= 50 ? 'N/A' : formatNumber(r.paybackYears) + ' años';
 
   // Métricas financieras (Colo)
