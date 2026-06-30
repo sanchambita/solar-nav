@@ -737,19 +737,25 @@ function hideLeadModal() {
   document.getElementById('lead-modal').style.display = 'none';
 }
 
-async function submitLead() {
+function submitLead() {
   const name = document.getElementById('lead-name').value.trim();
   const email = document.getElementById('lead-email').value.trim();
   const phone = document.getElementById('lead-phone').value.trim();
 
   if (!name) { showToast('Ingresa tu nombre', 'error'); return; }
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showToast('Ingresa un email valido', 'error'); return; }
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showToast('Ingresa un email válido', 'error'); return; }
 
-  const btn = document.getElementById('lead-submit-btn');
-  btn.disabled = true;
-  btn.textContent = 'Procesando...';
+  // Mostrar resultados INMEDIATAMENTE
+  leadSubmitted = true;
+  hideLeadModal();
+  incrementQuoteCounter();
+  updateProgress(1, true);
+  updateProgress(2, true);
+  updateProgress(3, true);
+  updateProgress(4, true);
+  renderResults(currentResult);
 
-  // Build budget summary for the API
+  // Enviar lead en background (no bloquea UI)
   const r = currentResult;
   const budget = r ? {
     province: r.province,
@@ -776,33 +782,11 @@ async function submitLead() {
     hsp: r.hsp,
   } : null;
 
-  // Enviar datos + factura a ventas (notificacion interna)
-  try {
-    const res = await fetch('/api/lead', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, phone, budget, billImage: currentBillImage }),
-    });
-    const data = await res.json();
-    if (data.ok) {
-      showToast('Datos enviados correctamente', 'success');
-    }
-  } catch (err) {
-    console.warn('Lead API error:', err.message);
-  }
-
-  // Show results regardless of API success
-  leadSubmitted = true;
-  hideLeadModal();
-  incrementQuoteCounter();
-  updateProgress(1, true);
-  updateProgress(2, true);
-  updateProgress(3, true);
-  updateProgress(4, true);
-  renderResults(currentResult);
-
-  btn.disabled = false;
-  btn.textContent = 'Ver presupuesto';
+  fetch('/api/lead', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, email, phone, budget, billImage: currentBillImage }),
+  }).catch(err => console.warn('Lead API error:', err.message));
 }
 
 
