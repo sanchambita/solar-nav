@@ -192,10 +192,14 @@ function calculateSolar(params) {
   const installCostARS = sysCosts.installUSD * cfg.dollarRate * serviceIVA;
   const cablingCostARS = sysCosts.cablingUSD * cfg.dollarRate * serviceIVA;
 
-  // Precio público del kit (USD con IVA incluido) — Excel Lista Precios Publico NQ
-  const totalCostARS = sysCosts.publicPriceUSD
-    ? sysCosts.publicPriceUSD * cfg.dollarRate
-    : equipmentCostARS + protectionsCostARS + installCostARS + cablingCostARS;
+  // Precio público del kit escalado por paneles — Excel Lista Precios Publico NQ
+  let totalCostARS;
+  if (sysCosts.publicPriceUSD && sysCosts.refPanels) {
+    const ratio = numPanels / sysCosts.refPanels;
+    totalCostARS = sysCosts.publicPriceUSD * ratio * cfg.dollarRate;
+  } else {
+    totalCostARS = equipmentCostARS + protectionsCostARS + installCostARS + cablingCostARS;
+  }
 
   // 8. Generación y ahorro — Metodología Excel Colo (balance neto facturación)
   const annualGenerationKwh = actualSystemKwp * hsp * 365 * sys.efficiency;
