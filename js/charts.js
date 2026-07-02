@@ -167,13 +167,15 @@ function renderCostDonut(canvasId, costs) {
 
   const data = [];
   const labels = [];
-  const colors = ['#e68a00', '#393c41', '#ff3b30', '#5856d6', '#00a650'];
+  const colors = ['#e68a00', '#393c41', '#ff3b30', '#5856d6', '#00a650', '#34c759', '#af52de', '#ff9500'];
 
   if (costs.panelCostARS > 0) { labels.push('Paneles'); data.push(costs.panelCostARS); }
   if (costs.inverterCostARS > 0) { labels.push('Inversor'); data.push(costs.inverterCostARS); }
-  if (costs.batteryCostARS > 0) { labels.push('Baterias'); data.push(costs.batteryCostARS); }
+  if (costs.batteryCostARS > 0) { labels.push('Baterías'); data.push(costs.batteryCostARS); }
   if (costs.structureCostARS > 0) { labels.push('Estructura'); data.push(costs.structureCostARS); }
+  if (costs.protectionsCostARS > 0) { labels.push('Protecciones'); data.push(costs.protectionsCostARS); }
   if (costs.installCostARS > 0) { labels.push('Instalación'); data.push(costs.installCostARS); }
+  if (costs.cablingCostARS > 0) { labels.push('Cableado'); data.push(costs.cablingCostARS); }
 
   chartInstances[canvasId] = new Chart(ctx, {
     type: 'doughnut',

@@ -1059,6 +1059,7 @@ function renderResults(r) {
     });
   }
   equipHtml += '<div class="cost-row"><span>Protecciones AC/DC</span></div>';
+  equipHtml += '<div class="cost-row"><span>Cableado solar</span></div>';
   equipHtml += '<div class="cost-row"><span>Instalación y puesta en marcha</span></div>';
   equipHtml += '<div style="margin-top:1rem; padding-top:1rem; border-top:2px solid var(--accent); text-align:center;">'
     + '<div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; color:var(--text-muted); margin-bottom:0.3rem;">Inversión estimada</div>'
@@ -1144,7 +1145,7 @@ function renderFinancing(r) {
 
   flexTotal += r.structureCostARS / (1 - 0.15);
   if (r.batteryCostARS > 0) flexTotal += r.batteryCostARS / (1 - 0.15);
-  flexTotal += r.installCostARS;
+  flexTotal += r.protectionsCostARS + r.installCostARS + r.cablingCostARS;
 
   // Cuotas config
   const cuotasOptions = [3, 6, 12];

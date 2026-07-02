@@ -56,8 +56,14 @@ function calculateSolar(params) {
   let systemKwpNeeded = (dailyKwh * sys.panelOversize) / (effectiveHsp * sys.efficiency);
 
   const panels = products.filter(p => p.category === 'panel').sort((a, b) => b.watts - a.watts);
+  // Excel: kits ≤20kW usan Jinko 550W, kits ≥50kW usan Amerisolar 580W
+  let autoPanel = panels[0];
+  if (!panelId && systemKwpNeeded <= 20) {
+    const jinko = panels.find(p => p.name.toLowerCase().includes('jinko'));
+    if (jinko) autoPanel = jinko;
+  }
   const selectedPanel = (panelId && products.find(p => p.id === panelId && p.category === 'panel'))
-    || panels[0]
+    || autoPanel
     || { watts: cfg.defaultPanelWp, priceUSD: 125, iva: 0.105, name: 'Panel 550W' };
   const panelWp = selectedPanel.watts / 1000;
 
@@ -173,13 +179,19 @@ function calculateSolar(params) {
       structureCostARS = kitsNeeded * calcFinalPriceARS(structureProduct);
       structureDetail = [{ name: structureProduct.name, qty: kitsNeeded, unitARS: calcFinalPriceARS(structureProduct), totalARS: structureCostARS }];
     } else {
-      structureCostARS = panelCostARS * cfg.structurePercent;
+      structureCostARS = panelCostARS * (cfg.structurePercent || 0.15);
     }
   }
   const equipmentCostARS = panelCostARS + inverterCostARS + structureCostARS + batteryCostARS;
-  const installMultiplier = (cfg.installMultipliers && cfg.installMultipliers[systemType]) || 1.0;
-  const installCostARS = (cfg.installBaseUSD + numPanels * cfg.installPerPanelUSD) * cfg.dollarRate * installMultiplier;
-  const totalCostARS = equipmentCostARS + installCostARS;
+
+  // Costos de protecciones, instalación y cableado — Excel CreativARTE
+  const inverterTotalWatts = selectedInverters.reduce((sum, i) => sum + i.product.watts * i.qty, 0);
+  const sysCosts = getSystemCosts(systemType, phaseType, inverterTotalWatts);
+  const serviceIVA = 1.21; // 21% IVA para servicios
+  const protectionsCostARS = sysCosts.protectionsUSD * cfg.dollarRate * serviceIVA;
+  const installCostARS = sysCosts.installUSD * cfg.dollarRate * serviceIVA;
+  const cablingCostARS = sysCosts.cablingUSD * cfg.dollarRate * serviceIVA;
+  const totalCostARS = equipmentCostARS + protectionsCostARS + installCostARS + cablingCostARS;
 
   // 8. Generación y ahorro — Metodología Excel Colo (balance neto facturación)
   const annualGenerationKwh = actualSystemKwp * hsp * 365 * sys.efficiency;
@@ -265,7 +277,8 @@ function calculateSolar(params) {
 
     // Costs
     panelCostARS, inverterCostARS, structureCostARS, structureDetail,
-    batteryCostARS, installCostARS, totalCostARS,
+    batteryCostARS, protectionsCostARS, installCostARS, cablingCostARS,
+    equipmentCostARS, totalCostARS,
 
     // Generation & Savings (balance neto)
     annualGenerationKwh, monthlyGenerationKwh,
