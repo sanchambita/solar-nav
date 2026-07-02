@@ -241,7 +241,7 @@
 
   .equip-row {
     display: grid;
-    grid-template-columns: 1fr auto auto;
+    grid-template-columns: 1fr auto auto auto;
     gap: 16px;
     padding: 18px 24px;
     background: var(--surface);
@@ -254,6 +254,7 @@
   .equip-row.header-row {
     background: var(--surface-alt);
     padding: 12px 24px;
+    grid-template-columns: 1fr auto auto auto;
   }
 
   .equip-row.header-row span {
@@ -601,35 +602,42 @@
       <span>Componente</span>
       <span>Cant.</span>
       <span style="text-align:right;">USD</span>
+      <span style="text-align:right;">Total</span>
     </div>
     <div class="equip-row">
       <div class="equip-name"><strong>Inversor</strong> Growatt MIN3000TL-X2</div>
       <div class="equip-qty">1</div>
       <div class="equip-price">$397.78</div>
+      <div class="equip-price">$397.78</div>
     </div>
     <div class="equip-row">
       <div class="equip-name"><strong>Paneles</strong> Jinko 550Wp Tiger Pro Mono Perc</div>
       <div class="equip-qty">4</div>
+      <div class="equip-price">$137.12</div>
       <div class="equip-price">$548.46</div>
     </div>
     <div class="equip-row">
       <div class="equip-name"><strong>Estructura</strong> Coplanar aluminio 4 paneles</div>
       <div class="equip-qty">1</div>
       <div class="equip-price">$94.12</div>
+      <div class="equip-price">$94.12</div>
     </div>
     <div class="equip-row">
       <div class="equip-name"><strong>Protecciones</strong> DC y AC</div>
       <div class="equip-qty">1</div>
+      <div class="equip-price">$185.06</div>
       <div class="equip-price">$185.06</div>
     </div>
     <div class="equip-row">
       <div class="equip-name"><strong>Cableado</strong> Solar + taller + conectores</div>
       <div class="equip-qty">1</div>
       <div class="equip-price">$175.94</div>
+      <div class="equip-price">$175.94</div>
     </div>
     <div class="equip-row">
       <div class="equip-name"><strong>Instalacion</strong> Puesta en marcha + flete</div>
       <div class="equip-qty">1</div>
+      <div class="equip-price">$670.00</div>
       <div class="equip-price">$670.00</div>
     </div>
   </div>
@@ -673,32 +681,26 @@
       <div class="legend-item">
         <div class="legend-dot" style="background:var(--donut-1);"></div>
         <div class="legend-text">Instalacion + flete</div>
-        <div class="legend-pct">32.3%</div>
       </div>
       <div class="legend-item">
         <div class="legend-dot" style="background:var(--donut-2);"></div>
         <div class="legend-text">Paneles Jinko 550W</div>
-        <div class="legend-pct">26.5%</div>
       </div>
       <div class="legend-item">
         <div class="legend-dot" style="background:var(--donut-3);"></div>
         <div class="legend-text">Inversor Growatt</div>
-        <div class="legend-pct">19.2%</div>
       </div>
       <div class="legend-item">
         <div class="legend-dot" style="background:var(--donut-4);"></div>
         <div class="legend-text">Protecciones DC/AC</div>
-        <div class="legend-pct">8.9%</div>
       </div>
       <div class="legend-item">
         <div class="legend-dot" style="background:var(--donut-5);"></div>
         <div class="legend-text">Cableado</div>
-        <div class="legend-pct">8.5%</div>
       </div>
       <div class="legend-item">
         <div class="legend-dot" style="background:var(--donut-6);"></div>
         <div class="legend-text">Estructura coplanar</div>
-        <div class="legend-pct">4.5%</div>
       </div>
     </div>
   </div>
