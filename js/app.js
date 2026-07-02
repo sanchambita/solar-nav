@@ -589,7 +589,11 @@ function fileToBase64(file) {
 }
 
 // ---------- Run Calculation ----------
+// Admin test mode: poner "adm@" en el campo nombre para saltear lead y no enviar mail
+const isAdminMode = () => (document.getElementById('lead-name')?.value || '').trim().toLowerCase().startsWith('adm@');
+
 function runCalculation(skipAnimation) {
+  if (isAdminMode()) { leadSubmitted = true; }
   const provinceId = document.getElementById('province').value;
   if (!provinceId) { showToast('Selecciona una provincia', 'error'); return; }
 
@@ -790,6 +794,12 @@ function submitLead() {
     systemKwp: r.systemKwp,
     hsp: r.hsp,
   } : null;
+
+  // Admin mode: no enviar lead
+  if (isAdminMode()) {
+    console.log('[ADMIN] Lead no enviado — modo test');
+    return;
+  }
 
   fetch('/api/lead', {
     method: 'POST',
