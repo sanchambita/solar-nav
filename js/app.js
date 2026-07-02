@@ -228,7 +228,7 @@ function adjustPanels(delta) {
   if (!currentResult) return;
   const newCount = Math.max(1, currentResult.numPanels + delta);
   currentPanelOverride = newCount;
-  runCalculation();
+  runCalculation(true); // skip animation
 }
 
 // ---------- AI integration ----------
@@ -589,7 +589,7 @@ function fileToBase64(file) {
 }
 
 // ---------- Run Calculation ----------
-function runCalculation() {
+function runCalculation(skipAnimation) {
   const provinceId = document.getElementById('province').value;
   if (!provinceId) { showToast('Selecciona una provincia', 'error'); return; }
 
@@ -655,6 +655,15 @@ function runCalculation() {
     maxPowerKw: currentMaxPowerKw,
     billPricePerKwh,
   };
+
+  // Panel adjust: recalculate instantly without animation
+  if (skipAnimation) {
+    const result = calculateSolar(calcParams);
+    if (result.error) { showToast(result.error, 'error'); return; }
+    currentResult = result;
+    renderResults(currentResult);
+    return;
+  }
 
   // Hide results and show loading animation
   document.getElementById('results').classList.remove('visible');
