@@ -589,9 +589,8 @@ function fileToBase64(file) {
 }
 
 // ---------- Run Calculation ----------
-// Admin test mode: agregar ?adm en la URL para saltear lead y no enviar mail
+// Admin test mode: agregar ?adm en la URL para no enviar mail al submitear lead
 const isAdminMode = () => new URLSearchParams(window.location.search).has('adm');
-if (isAdminMode()) { leadSubmitted = true; }
 
 function runCalculation(skipAnimation) {
   const provinceId = document.getElementById('province').value;
