@@ -320,6 +320,7 @@ function calculateSolar(params) {
 
     // New params
     phaseType, roofType, maxPowerKw,
+    refPanels: sysCosts.refPanels || null,
   };
 }
 

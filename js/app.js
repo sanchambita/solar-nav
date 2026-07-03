@@ -992,7 +992,15 @@ function renderResults(r) {
 
   // Panel adjuster
   el('r-panels').textContent = r.numPanels;
-  el('r-panel-rec').textContent = r.numPanels === r.recommendedPanels ? '(recomendado)' : '(recomendado: ' + r.recommendedPanels + ')';
+  const isOptimal = r.refPanels && r.numPanels === r.refPanels;
+  const recEl = el('r-panel-rec');
+  if (isOptimal) {
+    recEl.innerHTML = '<span style="color:var(--success); font-weight:600;">✓ óptimo</span>';
+  } else if (r.refPanels) {
+    recEl.innerHTML = '(óptimo: ' + r.refPanels + ')';
+  } else {
+    recEl.textContent = r.numPanels === r.recommendedPanels ? '(recomendado)' : '(recomendado: ' + r.recommendedPanels + ')';
+  }
 
   // Ahorro P x Q (generación x costo variable)
   const pxqSavings = Math.round(r.monthlyGenerationKwh) * r.pricePerKwh;
