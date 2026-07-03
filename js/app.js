@@ -589,11 +589,11 @@ function fileToBase64(file) {
 }
 
 // ---------- Run Calculation ----------
-// Admin test mode: poner "adm@" en el campo nombre para saltear lead y no enviar mail
-const isAdminMode = () => (document.getElementById('lead-name')?.value || '').trim().toLowerCase().startsWith('adm@');
+// Admin test mode: agregar ?adm en la URL para saltear lead y no enviar mail
+const isAdminMode = () => new URLSearchParams(window.location.search).has('adm');
+if (isAdminMode()) { leadSubmitted = true; }
 
 function runCalculation(skipAnimation) {
-  if (isAdminMode()) { leadSubmitted = true; }
   const provinceId = document.getElementById('province').value;
   if (!provinceId) { showToast('Selecciona una provincia', 'error'); return; }
 
