@@ -1,4 +1,7 @@
 {
+  "crons": [
+    { "path": "/api/dollar", "schedule": "30 14 * * *" }
+  ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/calculador", "destination": "/calc.html" }

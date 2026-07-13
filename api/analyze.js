@@ -1,3 +1,6 @@
+// Vercel function config — extend timeout to 60s
+export const config = { maxDuration: 60 };
+
 // Rate limit: simple in-memory store (resets per cold start)
 const rateLimit = new Map();
 const RATE_LIMIT = 10; // max requests per IP per minute
@@ -11,24 +14,42 @@ const MAX_SIZE = 10 * 1024 * 1024; // 10MB base64
 const ALLOWED_FIELDS = [
   'proveedor', 'tarifa', 'tipo_tarifa', 'actividad', 'consumo_kwh',
   'dias_periodo', 'monto_total', 'cargo_fijo', 'cargo_variable_1',
-  'cargo_variable_2', 'conceptos_electricos', 'impuestos', 'subsidio',
+  'cargo_variable_2', 'cargo_variable_3', 'conceptos_electricos', 'impuestos', 'subsidio',
   'nivel_subsidio', 'titular', 'direccion', 'localidad', 'provincia',
   'periodo', 'numero_cuenta', 'potencia_contratada',
 ];
 
-const PROMPT = `Analiza esta factura de electricidad de Argentina. El documento puede tener 1 o mas paginas — revisa TODAS las paginas para extraer los datos. Busca estos datos exactos y devuelve SOLO un JSON sin markdown:
+const PROMPT = `Analiza esta factura de electricidad de Argentina. IMPORTANTE: la imagen puede estar girada o rotada (horizontal, al revés, etc) — rotala mentalmente si es necesario para leerla correctamente. El documento puede tener 1 o mas paginas — revisa TODAS las paginas para extraer los datos.
+
+IMPORTANTE PARA DETECTAR TIPO DE TARIFA:
+- Buscar el campo "Categoría" o "Tarifa" en la factura.
+- Si dice "T2", "GR.DEMANDA T2", "T2MT", "T2BT" → tipo_tarifa es "T2"
+- Si dice "T3", "GR.DEMANDA T3" → tipo_tarifa es "T3"
+- Si dice "T1", "R1", "R2", "R3", "PEQUEÑA DEMANDA" → tipo_tarifa es "T1"
+- Cooperativas locales tambien usan T2/T3, buscar bien el campo Categoría.
+
+IMPORTANTE PARA CARGOS VARIABLES:
+- En tarifas T1: hay 1 o 2 tramos de energia variable.
+- En tarifas T2 y T3: hay 3 cargos de energia separados por franja horaria:
+  * "Energia resto" o "Energía Resto" → cargo_variable_1 (el monto en $ del Importe, NO los kWh)
+  * "Energia pico" o "Energía Pico" → cargo_variable_2 (el monto en $)
+  * "Energia valle" o "Energía Valle" → cargo_variable_3 (el monto en $)
+- En T2/T3, el consumo_kwh es la SUMA de los kWh de las 3 franjas (resto + pico + valle).
+
+Devuelve SOLO un JSON sin markdown:
 
 {
-  "proveedor": "EDENOR" o "EDESUR" o "EPEC" o el nombre que figure,
-  "tarifa": "T1-R3" o lo que diga en el campo TARIFA,
+  "proveedor": "EDENOR" o "EDESUR" o "EPEC" o "CEB" o el nombre que figure,
+  "tarifa": lo que diga en el campo TARIFA o Categoría (ej: "GR.DEMANDA T2MT < 300 KW"),
   "tipo_tarifa": "T1" o "T2" o "T3",
   "actividad": "RESIDENCIAL" o "COMERCIAL" o "INDUSTRIAL",
-  "consumo_kwh": numero total de kWh consumidos (buscar "Total Consumo" o "kWh"),
+  "consumo_kwh": numero total de kWh consumidos. En T1 buscar "Total Consumo" o "kWh". En T2/T3 SUMAR los kWh de energia resto + pico + valle,
   "dias_periodo": dias del periodo de facturacion,
-  "monto_total": monto de "Total a pagar" en pesos,
-  "cargo_fijo": monto del cargo fijo,
-  "cargo_variable_1": monto del primer tramo variable,
-  "cargo_variable_2": monto del segundo tramo variable si existe,
+  "monto_total": monto de "Total a pagar" o "Al Vencimiento" en pesos,
+  "cargo_fijo": monto del cargo fijo en pesos,
+  "cargo_variable_1": en T1 el primer tramo variable. En T2/T3 el importe en $ de "Energia resto",
+  "cargo_variable_2": en T1 el segundo tramo si existe. En T2/T3 el importe en $ de "Energia pico",
+  "cargo_variable_3": solo en T2/T3, el importe en $ de "Energia valle" (null en T1),
   "conceptos_electricos": subtotal de conceptos electricos,
   "impuestos": monto de impuestos y contribuciones,
   "subsidio": monto del subsidio si existe,
@@ -36,10 +57,10 @@ const PROMPT = `Analiza esta factura de electricidad de Argentina. El documento 
   "titular": nombre del titular,
   "direccion": direccion completa del suministro/servicio,
   "localidad": ciudad o localidad,
-  "provincia": provincia (ej: "Buenos Aires", "CABA", "Cordoba"),
-  "periodo": periodo de consumo (ej: "18/12/2025 AL 21/01/2026"),
+  "provincia": provincia (ej: "Buenos Aires", "CABA", "Cordoba", "Rio Negro"),
+  "periodo": periodo de consumo (ej: "20/05/2026 AL 20/06/2026"),
   "numero_cuenta": numero de cuenta o suministro,
-  "potencia_contratada": numero de kW de potencia contratada/demandada (solo para T2/T3, buscar "Demanda contratada" o "Potencia")
+  "potencia_contratada": numero de kW de potencia contratada/demandada (solo para T2/T3)
 }
 
 Si no puedes determinar un campo usa null. SOLO devuelve el JSON, sin backticks ni markdown.`;
@@ -112,19 +133,46 @@ export default async function handler(req, res) {
 
     const safeMime = ALLOWED_MIMES.includes(mimeType) ? mimeType : 'image/jpeg';
     let text = '';
-    const debug = [];
 
-    // --- Try Groq first (fast, free) — solo para imágenes, no soporta PDF ---
-    let groqError = null;
-    debug.push(`groqKey: ${groqKey ? 'yes(' + groqKey.slice(0,8) + '...)' : 'NO'}, isImage: ${isImage}, isPdf: ${isPdf}, b64len: ${image.length}`);
-
-    if (groqKey && isImage) {
+    // --- Gemini 3 Flash PRIMERO (mejor OCR, soporta PDF + imágenes rotadas) ---
+    if (geminiKey) {
       try {
-        // Groq limit: 4MB base64 images
-        if (image.length > 4 * 1024 * 1024) {
-          groqError = 'Image >4MB base64, skipping Groq';
-          debug.push(groqError);
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 25000); // 25s max
+
+        const geminiBody = JSON.stringify({
+          contents: [{
+            parts: [
+              { text: PROMPT },
+              { inline_data: { mime_type: safeMime, data: image } }
+            ]
+          }]
+        });
+        const geminiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent';
+
+        const geminiRes = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': geminiKey },
+          body: geminiBody,
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
+
+        if (geminiRes.ok) {
+          const geminiData = await geminiRes.json();
+          text = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
         } else {
+          console.error('Gemini failed:', geminiRes.status);
+        }
+      } catch (e) {
+        console.error('Gemini error/timeout:', e.message);
+      }
+    }
+
+    // --- Fallback: Groq (solo imágenes, no PDF) ---
+    if (!text && groqKey && isImage) {
+      try {
+        if (image.length <= 4 * 1024 * 1024) {
           const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
             headers: {
@@ -145,62 +193,18 @@ export default async function handler(req, res) {
             }),
           });
 
-          debug.push(`Groq status: ${groqRes.status}`);
           if (groqRes.ok) {
             const groqData = await groqRes.json();
-            const content = groqData.choices?.[0]?.message?.content || '';
-            debug.push(`Groq content length: ${content.length}`);
-            text = content;
-          } else {
-            const errBody = await groqRes.text().catch(() => '');
-            groqError = `Groq ${groqRes.status}: ${errBody.slice(0, 300)}`;
-            debug.push(groqError);
+            text = groqData.choices?.[0]?.message?.content || '';
           }
         }
       } catch (e) {
-        groqError = `Groq exception: ${e.message}`;
-        debug.push(groqError);
-      }
-    } else {
-      debug.push(`Groq skipped: ${!groqKey ? 'no key' : 'not an image'}`);
-    }
-
-    // --- Fallback: Gemini (soporta PDF + imágenes multi-página) ---
-    if (!text && geminiKey) {
-      const geminiBody = JSON.stringify({
-        contents: [{
-          parts: [
-            { text: PROMPT },
-            { inline_data: { mime_type: safeMime, data: image } }
-          ]
-        }]
-      });
-      const geminiHeaders = {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': geminiKey,
-      };
-      const geminiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
-
-      let geminiRes = await fetch(geminiUrl, { method: 'POST', headers: geminiHeaders, body: geminiBody });
-
-      // Retry once on 429 (rate limit) after short wait
-      if (geminiRes.status === 429) {
-        await new Promise(r => setTimeout(r, 5000));
-        geminiRes = await fetch(geminiUrl, { method: 'POST', headers: geminiHeaders, body: geminiBody });
-      }
-
-      if (geminiRes.ok) {
-        const geminiData = await geminiRes.json();
-        text = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      } else {
-        const err = await geminiRes.json().catch(() => ({}));
-        const errMsg = err.error?.message || '';
-        console.error('Gemini failed:', geminiRes.status, errMsg);
+        console.error('Groq fallback failed:', e.message);
       }
     }
 
     if (!text) {
-      console.error('All AI providers failed. Debug:', debug.join(' | '));
+      console.error('All AI providers failed');
       return res.status(502).json({
         error: 'No se pudo analizar la factura. Intenta con otra foto o usa el modo manual.',
       });

@@ -4,7 +4,7 @@
 // ============================================================
 
 const CONFIG = {
-  dollarRate: 1443.3,    // Fallback — se actualiza con BNA en init
+  dollarRate: 1500,      // Fallback — se actualiza con BNA en init
   margin: 1.40,          // Solo para productos sin priceARS
   efficiency: 0.80,      // Factor eficiencia del sistema
   panelArea: 2.2,        // m² por panel promedio
@@ -126,22 +126,25 @@ const TARIFFS = [
 // Costos de protecciones, instalación y cableado por kit (Excel CreativARTE)
 // Precios en USD sell price (con margen incluido). IVA 21% se aplica aparte.
 const SYSTEM_COSTS = [
-  // On Grid Mono — publicPriceUSD = precio público con IVA, refPanels = paneles del kit Excel
-  { type: 'ongrid', phase: 'mono', maxWatts: 3000, refPanels: 6, protectionsUSD: 185.06, installUSD: 670, cablingUSD: 175.94, publicPriceUSD: 2128 },
-  { type: 'ongrid', phase: 'mono', maxWatts: 5000, refPanels: 10, protectionsUSD: 208.47, installUSD: 1100, cablingUSD: 178.74, publicPriceUSD: 3535 },
+  // Protecciones, instalación y cableado FIJOS por rango de potencia (Excel CreativARTE)
+  // Precios en USD sell price (con margen incluido). IVA 21% se aplica aparte.
+  // refPanels = paneles del kit Excel (para referencia, ya no se usa para escalar)
+  // On Grid Mono
+  { type: 'ongrid', phase: 'mono', maxWatts: 3000, refPanels: 4, protectionsUSD: 185.06, installUSD: 670, cablingUSD: 175.94 },
+  { type: 'ongrid', phase: 'mono', maxWatts: 5000, refPanels: 8, protectionsUSD: 208.47, installUSD: 1100, cablingUSD: 178.74 },
   // On Grid Tri
-  { type: 'ongrid', phase: 'tri', maxWatts: 6000, refPanels: 11, protectionsUSD: 208.47, installUSD: 1240, cablingUSD: 178.74, publicPriceUSD: 3622 },
-  { type: 'ongrid', phase: 'tri', maxWatts: 10000, refPanels: 18, protectionsUSD: 257.47, installUSD: 1670, cablingUSD: 238.94, publicPriceUSD: 4816 },
-  { type: 'ongrid', phase: 'tri', maxWatts: 20000, refPanels: 36, protectionsUSD: 512.51, installUSD: 4900, cablingUSD: 640.83, publicPriceUSD: 13980 },
-  { type: 'ongrid', phase: 'tri', maxWatts: 50000, refPanels: 86, protectionsUSD: 1254.78, installUSD: 8700, cablingUSD: 2697.43, publicPriceUSD: 30753 },
-  { type: 'ongrid', phase: 'tri', maxWatts: 100000, refPanels: 172, protectionsUSD: 1465.79, installUSD: 17550, cablingUSD: 8546.49, publicPriceUSD: 59877 },
+  { type: 'ongrid', phase: 'tri', maxWatts: 6000, refPanels: 8, protectionsUSD: 208.47, installUSD: 1240, cablingUSD: 178.74 },
+  { type: 'ongrid', phase: 'tri', maxWatts: 10000, refPanels: 12, protectionsUSD: 257.47, installUSD: 1670, cablingUSD: 238.94 },
+  { type: 'ongrid', phase: 'tri', maxWatts: 20000, refPanels: 36, protectionsUSD: 512.51, installUSD: 4900, cablingUSD: 640.83 },
+  { type: 'ongrid', phase: 'tri', maxWatts: 50000, refPanels: 96, protectionsUSD: 1254.78, installUSD: 8700, cablingUSD: 2697.43 },
+  { type: 'ongrid', phase: 'tri', maxWatts: 100000, refPanels: 180, protectionsUSD: 1465.79, installUSD: 17550, cablingUSD: 8546.49 },
   // Híbrido Mono
-  { type: 'hybrid', phase: 'mono', maxWatts: 6000, refPanels: 11, protectionsUSD: 386.51, installUSD: 1690, cablingUSD: 757.82, publicPriceUSD: 6756 },
+  { type: 'hybrid', phase: 'mono', maxWatts: 6000, refPanels: 8, protectionsUSD: 386.51, installUSD: 1690, cablingUSD: 757.82 },
   // Híbrido Tri
-  { type: 'hybrid', phase: 'tri', maxWatts: 10000, refPanels: 18, protectionsUSD: 386.51, installUSD: 1840, cablingUSD: 757.82, publicPriceUSD: 10109 },
+  { type: 'hybrid', phase: 'tri', maxWatts: 10000, refPanels: 12, protectionsUSD: 386.51, installUSD: 1840, cablingUSD: 757.82 },
   // Off-Grid (usa costos híbrido como referencia)
-  { type: 'offgrid', phase: 'mono', maxWatts: 6000, refPanels: 11, protectionsUSD: 386.51, installUSD: 1690, cablingUSD: 757.82, publicPriceUSD: 6756 },
-  { type: 'offgrid', phase: 'tri', maxWatts: 10000, refPanels: 18, protectionsUSD: 386.51, installUSD: 1840, cablingUSD: 757.82, publicPriceUSD: 10109 },
+  { type: 'offgrid', phase: 'mono', maxWatts: 6000, refPanels: 8, protectionsUSD: 386.51, installUSD: 1690, cablingUSD: 757.82 },
+  { type: 'offgrid', phase: 'tri', maxWatts: 10000, refPanels: 12, protectionsUSD: 386.51, installUSD: 1840, cablingUSD: 757.82 },
 ];
 
 function getSystemCosts(systemType, phaseType, inverterWatts) {

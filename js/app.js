@@ -85,27 +85,32 @@ function populateTariffs() {
 function populateEquipment() {
   const products = getProducts();
 
-  // Panels
+  // Panels (sin precio)
   const panelSel = document.getElementById('panel-select');
   if (!panelSel) return;
   products.filter(p => p.category === 'panel').sort((a, b) => b.watts - a.watts).forEach(p => {
     const opt = document.createElement('option');
     opt.value = p.id;
-    opt.textContent = p.watts + 'W ' + p.brand + ' — ' + formatARS(calcFinalPriceARS(p));
+    opt.textContent = p.watts + 'W ' + p.brand;
     panelSel.appendChild(opt);
   });
 
-  // Inverters (all types)
+  // Inverters — deduplicar por watts+categoría (queda el de menor precio)
   const invSel = document.getElementById('inverter-select');
-  products.filter(p => (p.category === 'inversor' || p.category === 'inversor-offgrid' || p.category === 'inversor-hibrido') && p.watts)
-    .sort((a, b) => a.watts - b.watts).forEach(p => {
-      const opt = document.createElement('option');
-      opt.value = p.id;
-      const kw = p.watts >= 1000 ? (p.watts/1000) + 'kW' : p.watts + 'W';
-      const cat = p.category === 'inversor' ? '' : p.category === 'inversor-hibrido' ? ' [Hibrido]' : ' [Off-Grid]';
-      opt.textContent = kw + ' ' + p.brand + cat + ' — ' + formatARS(calcFinalPriceARS(p));
-      invSel.appendChild(opt);
-    });
+  const allInverters = products.filter(p => (p.category === 'inversor' || p.category === 'inversor-offgrid' || p.category === 'inversor-hibrido') && p.watts)
+    .sort((a, b) => a.watts - b.watts);
+  const seen = new Set();
+  allInverters.forEach(p => {
+    const key = p.watts + '-' + p.category;
+    if (seen.has(key)) return;
+    seen.add(key);
+    const opt = document.createElement('option');
+    opt.value = p.id;
+    const kw = p.watts >= 1000 ? (p.watts/1000) + 'kW' : p.watts + 'W';
+    const cat = p.category === 'inversor' ? 'On-Grid' : p.category === 'inversor-hibrido' ? 'Hibrido' : 'Off-Grid';
+    opt.textContent = kw + ' ' + p.brand + ' ' + cat;
+    invSel.appendChild(opt);
+  });
 
   // Show equipment step
   document.getElementById('equipment-step').style.display = 'block';
@@ -398,8 +403,9 @@ function showBillResult(data) {
   if (data.dias_periodo) html += row('Dias periodo', data.dias_periodo + ' días');
   if (data.monto_total) html += row('Total a pagar', formatARS(data.monto_total));
   if (data.cargo_fijo) html += row('Cargo fijo', formatARS(data.cargo_fijo));
-  if (data.cargo_variable_1) html += row('Cargo variable 1', formatARS(data.cargo_variable_1));
-  if (data.cargo_variable_2) html += row('Cargo variable 2', formatARS(data.cargo_variable_2));
+  if (data.cargo_variable_1) html += row(data.cargo_variable_3 ? 'Energía resto' : 'Cargo variable 1', formatARS(data.cargo_variable_1));
+  if (data.cargo_variable_2) html += row(data.cargo_variable_3 ? 'Energía pico' : 'Cargo variable 2', formatARS(data.cargo_variable_2));
+  if (data.cargo_variable_3) html += row('Energía valle', formatARS(data.cargo_variable_3));
   if (data.conceptos_electricos) html += row('Conceptos electricos', formatARS(data.conceptos_electricos));
   if (data.impuestos) html += row('Impuestos', formatARS(data.impuestos));
   if (data.subsidio) html += row('Subsidio', formatARS(data.subsidio));
@@ -580,11 +586,39 @@ async function pdfToImage(file) {
 }
 
 function fileToBase64(file) {
+  // Resize image to max 1600px for faster upload and faster AI processing
   return new Promise((resolve, reject) => {
+    const MAX_DIM = 1600;
+    const img = new Image();
     const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result);
+    reader.onload = () => {
+      // If not an image (e.g., PDF already converted), return as-is
+      if (!file.type.startsWith('image/')) {
+        resolve(reader.result);
+        return;
+      }
+      img.onload = () => {
+        let { width, height } = img;
+        // Only resize if larger than MAX_DIM
+        if (width <= MAX_DIM && height <= MAX_DIM) {
+          resolve(reader.result);
+          return;
+        }
+        const ratio = Math.min(MAX_DIM / width, MAX_DIM / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.82));
+      };
+      img.onerror = () => resolve(reader.result); // fallback to original
+      img.src = reader.result;
+    };
     reader.onerror = reject;
+    reader.readAsDataURL(file);
   });
 }
 
@@ -634,13 +668,15 @@ function runCalculation(skipAnimation) {
   const invSelVal = document.getElementById('inverter-select')?.value;
   const numPanelsInput = parseInt(document.getElementById('num-panels-override')?.value) || 0;
 
-  // Si hay factura, calcular precio real: (cargo_variable_1 + cargo_variable_2) / consumo_kwh
+  // Si hay factura, calcular precio real: suma cargos variables / consumo_kwh
+  // T1: cv1 + cv2, T2/T3: cv1 (resto) + cv2 (pico) + cv3 (valle)
   let billPricePerKwh = null;
   if (currentBillData && currentBillData.consumo_kwh) {
     const cv1 = currentBillData.cargo_variable_1 || 0;
     const cv2 = currentBillData.cargo_variable_2 || 0;
-    if (cv1 + cv2 > 0) {
-      billPricePerKwh = (cv1 + cv2) / currentBillData.consumo_kwh;
+    const cv3 = currentBillData.cargo_variable_3 || 0;
+    if (cv1 + cv2 + cv3 > 0) {
+      billPricePerKwh = (cv1 + cv2 + cv3) / currentBillData.consumo_kwh;
     }
   }
 
@@ -992,15 +1028,8 @@ function renderResults(r) {
 
   // Panel adjuster
   el('r-panels').textContent = r.numPanels;
-  const isOptimal = r.refPanels && r.numPanels === r.refPanels;
   const recEl = el('r-panel-rec');
-  if (isOptimal) {
-    recEl.innerHTML = '<span style="color:var(--success); font-weight:600;">✓ óptimo</span>';
-  } else if (r.refPanels) {
-    recEl.innerHTML = '(óptimo: ' + r.refPanels + ')';
-  } else {
-    recEl.textContent = r.numPanels === r.recommendedPanels ? '(recomendado)' : '(recomendado: ' + r.recommendedPanels + ')';
-  }
+  recEl.textContent = '';
 
   // Ahorro P x Q (generación x costo variable)
   const pxqSavings = Math.round(r.monthlyGenerationKwh) * r.pricePerKwh;
@@ -1140,70 +1169,13 @@ function renderFinancing(r) {
   const grid = document.getElementById('financing-grid');
   section.style.display = 'block';
 
-  const cfg = getConfig();
-  const products = getProducts();
-
-  // Calculate cash price (with cash discount applied — already in totalCostARS)
-  const cashTotal = r.totalCostARS;
-
-  // Flex price (without cash discount): recalculate
-  // The cashDiscount is applied per product. To get flex price, we need to reverse it.
-  // Simpler approach: recalculate total using flexPriceUSD or without cashDiscount
-  let flexTotal = 0;
-  const panel = products.find(p => p.name === r.selectedPanel) || products.find(p => p.category === 'panel');
-  if (panel) {
-    const panelFlex = panel.priceARS || ((panel.flexPriceUSD || panel.priceUSD) * cfg.margin * cfg.dollarRate * (1 + panel.iva));
-    flexTotal += r.numPanels * panelFlex;
-  } else {
-    flexTotal += r.panelCostARS / (1 - 0.15); // approximate
-  }
-
-  // Inverter flex
-  r.selectedInverters.forEach(inv => {
-    const invProd = products.find(p => p.name === inv.name);
-    if (invProd) {
-      const invFlex = invProd.priceARS || ((invProd.flexPriceUSD || invProd.priceUSD) * cfg.margin * cfg.dollarRate * (1 + invProd.iva));
-      flexTotal += inv.qty * invFlex;
-    } else {
-      flexTotal += inv.priceARS / (1 - 0.15);
-    }
-  });
-
-  flexTotal += r.structureCostARS / (1 - 0.15);
-  if (r.batteryCostARS > 0) flexTotal += r.batteryCostARS / (1 - 0.15);
-  flexTotal += r.protectionsCostARS + r.installCostARS + r.cablingCostARS;
-
-  // Cuotas config
-  const cuotasOptions = [3, 6, 12];
-  const tasaMensual = 0.05; // 5% mensual
-
-  const savingsPct = cashTotal < flexTotal ? Math.round((1 - cashTotal / flexTotal) * 100) : 0;
-
   let html = '';
 
-  // Contado
+  // Solo precio total
   html += '<div class="financing-card recommended">'
-    + '<h4>Contado</h4>'
-    + '<div class="fin-price" style="color:var(--success);">' + formatARS(cashTotal) + '</div>'
-    + '<div class="fin-detail">Transferencia o efectivo</div>'
-    + (savingsPct > 0 ? '<div class="fin-savings">Ahorras ' + savingsPct + '% vs precio lista</div>' : '')
-    + '</div>';
-
-  // Flex / precio lista
-  html += '<div class="financing-card">'
-    + '<h4>Precio lista</h4>'
-    + '<div class="fin-price" style="color:var(--gold);">' + formatARS(Math.round(flexTotal)) + '</div>'
-    + '<div class="fin-detail">Sin descuento contado</div>'
-    + '</div>';
-
-  // Cuotas (6 cuotas como ejemplo principal)
-  const cuotas6 = 6;
-  const cuotaAmount = flexTotal * (tasaMensual * Math.pow(1 + tasaMensual, cuotas6)) / (Math.pow(1 + tasaMensual, cuotas6) - 1);
-  html += '<div class="financing-card">'
-    + '<h4>' + cuotas6 + ' cuotas</h4>'
-    + '<div class="fin-price" style="color:var(--text);">' + formatARS(Math.round(cuotaAmount)) + '<span style="font-size:0.7rem;color:var(--text-muted)">/mes</span></div>'
-    + '<div class="fin-detail">Total: ' + formatARS(Math.round(cuotaAmount * cuotas6)) + '</div>'
-    + '<div class="fin-detail" style="margin-top:0.3rem;">Tambien en 3 o 12 cuotas</div>'
+    + '<h4>Inversion total</h4>'
+    + '<div class="fin-price" style="color:var(--success);">' + formatARS(r.totalCostARS) + '</div>'
+    + '<div class="fin-detail">Equipo + instalacion llave en mano</div>'
     + '</div>';
 
   grid.innerHTML = html;

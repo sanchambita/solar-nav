@@ -184,7 +184,7 @@ function calculateSolar(params) {
   }
   const equipmentCostARS = panelCostARS + inverterCostARS + structureCostARS + batteryCostARS;
 
-  // Costos de protecciones, instalación y cableado — Excel CreativARTE
+  // Costos de protecciones, instalación y cableado — FIJOS por rango de potencia (Excel CreativARTE)
   const inverterTotalWatts = selectedInverters.reduce((sum, i) => sum + i.product.watts * i.qty, 0);
   const sysCosts = getSystemCosts(systemType, phaseType, inverterTotalWatts);
   const serviceIVA = 1.21; // 21% IVA para servicios
@@ -192,14 +192,8 @@ function calculateSolar(params) {
   const installCostARS = sysCosts.installUSD * cfg.dollarRate * serviceIVA;
   const cablingCostARS = sysCosts.cablingUSD * cfg.dollarRate * serviceIVA;
 
-  // Precio público del kit escalado por paneles — Excel Lista Precios Publico NQ
-  let totalCostARS;
-  if (sysCosts.publicPriceUSD && sysCosts.refPanels) {
-    const ratio = numPanels / sysCosts.refPanels;
-    totalCostARS = sysCosts.publicPriceUSD * ratio * cfg.dollarRate;
-  } else {
-    totalCostARS = equipmentCostARS + protectionsCostARS + installCostARS + cablingCostARS;
-  }
+  // Total = equipos (variable) + protecciones/instalación/cableado (fijo por rango)
+  const totalCostARS = equipmentCostARS + protectionsCostARS + installCostARS + cablingCostARS;
 
   // 8. Generación y ahorro — Metodología Excel Colo (balance neto facturación)
   const annualGenerationKwh = actualSystemKwp * hsp * 365 * sys.efficiency;
