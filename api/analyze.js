@@ -13,6 +13,7 @@ const MAX_SIZE = 10 * 1024 * 1024; // 10MB base64
 
 const ALLOWED_FIELDS = [
   'proveedor', 'tarifa', 'tipo_tarifa', 'actividad', 'consumo_kwh',
+  'kwh_resto', 'kwh_pico', 'kwh_valle',
   'dias_periodo', 'monto_total', 'cargo_fijo', 'cargo_variable_1',
   'cargo_variable_2', 'cargo_variable_3', 'conceptos_electricos', 'impuestos', 'subsidio',
   'nivel_subsidio', 'titular', 'direccion', 'localidad', 'provincia',
@@ -28,13 +29,15 @@ IMPORTANTE PARA DETECTAR TIPO DE TARIFA:
 - Si dice "T1", "R1", "R2", "R3", "PEQUEÑA DEMANDA" → tipo_tarifa es "T1"
 - Cooperativas locales tambien usan T2/T3, buscar bien el campo Categoría.
 
-IMPORTANTE PARA CARGOS VARIABLES:
-- En tarifas T1: hay 1 o 2 tramos de energia variable.
+IMPORTANTE PARA CARGOS VARIABLES Y CONSUMO:
+- En tarifas T1: hay 1 o 2 tramos de energia variable. El consumo_kwh es el total que figure.
 - En tarifas T2 y T3: hay 3 cargos de energia separados por franja horaria:
-  * "Energia resto" o "Energía Resto" → cargo_variable_1 (el monto en $ del Importe, NO los kWh)
-  * "Energia pico" o "Energía Pico" → cargo_variable_2 (el monto en $)
-  * "Energia valle" o "Energía Valle" → cargo_variable_3 (el monto en $)
-- En T2/T3, el consumo_kwh es la SUMA de los kWh de las 3 franjas (resto + pico + valle).
+  * "Energia resto" → cargo_variable_1 (el monto en $ del Importe), kwh_resto (la Cantidad en kWh)
+  * "Energia pico" → cargo_variable_2 (el monto en $), kwh_pico (la Cantidad en kWh)
+  * "Energia valle" → cargo_variable_3 (el monto en $), kwh_valle (la Cantidad en kWh)
+  * IMPORTANTE: en la tabla de conceptos cada fila tiene columnas Cantidad (kWh) e Importe ($). Leer AMBOS.
+- En T2/T3, consumo_kwh = kwh_resto + kwh_pico + kwh_valle (la SUMA de los kWh de las 3 franjas, NO el valor de una sola fila).
+  Ejemplo: si resto=75233 kWh, pico=23865 kWh, valle=20353 kWh → consumo_kwh=119451
 
 Devuelve SOLO un JSON sin markdown:
 
@@ -43,11 +46,14 @@ Devuelve SOLO un JSON sin markdown:
   "tarifa": lo que diga en el campo TARIFA o Categoría (ej: "GR.DEMANDA T2MT < 300 KW"),
   "tipo_tarifa": "T1" o "T2" o "T3",
   "actividad": "RESIDENCIAL" o "COMERCIAL" o "INDUSTRIAL",
-  "consumo_kwh": numero total de kWh consumidos. En T1 buscar "Total Consumo" o "kWh". En T2/T3 SUMAR los kWh de energia resto + pico + valle,
+  "consumo_kwh": total kWh. En T1 buscar "Total Consumo". En T2/T3 es la SUMA: kwh_resto + kwh_pico + kwh_valle,
+  "kwh_resto": solo T2/T3, kWh de energia resto (la columna Cantidad, no el importe),
+  "kwh_pico": solo T2/T3, kWh de energia pico,
+  "kwh_valle": solo T2/T3, kWh de energia valle,
   "dias_periodo": dias del periodo de facturacion,
   "monto_total": monto de "Total a pagar" o "Al Vencimiento" en pesos,
   "cargo_fijo": monto del cargo fijo en pesos,
-  "cargo_variable_1": en T1 el primer tramo variable. En T2/T3 el importe en $ de "Energia resto",
+  "cargo_variable_1": en T1 el primer tramo variable en $. En T2/T3 el importe en $ de "Energia resto",
   "cargo_variable_2": en T1 el segundo tramo si existe. En T2/T3 el importe en $ de "Energia pico",
   "cargo_variable_3": solo en T2/T3, el importe en $ de "Energia valle" (null en T1),
   "conceptos_electricos": subtotal de conceptos electricos,
@@ -60,7 +66,7 @@ Devuelve SOLO un JSON sin markdown:
   "provincia": provincia (ej: "Buenos Aires", "CABA", "Cordoba", "Rio Negro"),
   "periodo": periodo de consumo (ej: "20/05/2026 AL 20/06/2026"),
   "numero_cuenta": numero de cuenta o suministro,
-  "potencia_contratada": numero de kW de potencia contratada/demandada (solo para T2/T3)
+  "potencia_contratada": numero de kW de potencia contratada/demandada (solo para T2/T3, buscar "Potencia Convenida" o "Demanda contratada")
 }
 
 Si no puedes determinar un campo usa null. SOLO devuelve el JSON, sin backticks ni markdown.`;

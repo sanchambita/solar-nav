@@ -87,9 +87,9 @@ function calculateSolar(params) {
   let numPanels = numPanelsOverride || recommendedPanels;
   let actualSystemKwp = numPanels * panelWp;
 
-  // Power limit check
+  // Power limit check (skip if no limit set)
   let powerLimitWarning = null;
-  if (actualSystemKwp > maxPowerKw) {
+  if (maxPowerKw && actualSystemKwp > maxPowerKw) {
     powerLimitWarning = `Sistema limitado de ${actualSystemKwp.toFixed(1)} kWp a ${maxPowerKw} kWp por límite de potencia configurado`;
     actualSystemKwp = maxPowerKw;
     numPanels = Math.floor(maxPowerKw / panelWp);

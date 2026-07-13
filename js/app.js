@@ -423,6 +423,12 @@ function showBillResult(data) {
 
 // ---------- Auto-fill from bill ----------
 function autoFillFromBill(data) {
+  // T2/T3: recalcular consumo como suma de las 3 franjas si están disponibles
+  if (data.kwh_resto && data.kwh_pico && data.kwh_valle) {
+    const sumaKwh = data.kwh_resto + data.kwh_pico + data.kwh_valle;
+    if (sumaKwh > 0) data.consumo_kwh = sumaKwh;
+  }
+
   if (data.consumo_kwh) {
     const kwh = Math.round(data.consumo_kwh);
     document.getElementById('auto-kwh').value = kwh;
@@ -434,23 +440,31 @@ function autoFillFromBill(data) {
   const actividad = (data.actividad || '').toLowerCase();
 
   let bestMatch = '';
+  let fallbackMatch = '';
 
   for (const tariff of TARIFFS) {
-    const providerMatch = tariff.provider && provider.includes(tariff.provider);
-    if (!providerMatch) continue;
     if (tariff.type !== tipo) continue;
 
-    if (tipo === 'T1') {
-      const isResidencial = actividad.includes('residen') || actividad === '';
-      const isResTariff = tariff.id.includes('-res');
-      if (isResidencial && isResTariff) { bestMatch = tariff.id; break; }
-      if (!isResidencial && !isResTariff) { bestMatch = tariff.id; break; }
-      if (!bestMatch) bestMatch = tariff.id;
-    } else {
-      bestMatch = tariff.id;
-      break;
+    const providerMatch = tariff.provider && provider.includes(tariff.provider);
+
+    if (providerMatch) {
+      if (tipo === 'T1') {
+        const isResidencial = actividad.includes('residen') || actividad === '';
+        const isResTariff = tariff.id.includes('-res');
+        if (isResidencial && isResTariff) { bestMatch = tariff.id; break; }
+        if (!isResidencial && !isResTariff) { bestMatch = tariff.id; break; }
+        if (!bestMatch) bestMatch = tariff.id;
+      } else {
+        bestMatch = tariff.id;
+        break;
+      }
+    } else if (!fallbackMatch) {
+      // Fallback: mismo tipo de tarifa de otro proveedor (para cooperativas no listadas)
+      fallbackMatch = tariff.id;
     }
   }
+
+  if (!bestMatch && fallbackMatch) bestMatch = fallbackMatch;
 
   let autoTariff = document.getElementById('auto-tariff');
   if (!autoTariff) {
@@ -498,17 +512,21 @@ function autoFillFromBill(data) {
         limitInfo.style.display = 'block';
       }
     } else {
-      // Default power limits for T2/T3 if not detected
-      currentMaxPowerKw = detectedType === 'T2' ? 50 : 300;
-      document.getElementById('max-power-kw').value = currentMaxPowerKw;
+      // Sin potencia detectada: no limitar
+      currentMaxPowerKw = null;
+      document.getElementById('max-power-kw').value = '';
     }
     // Hide phase question (T2/T3 is always tri)
     const phaseQ = document.getElementById('phase-question');
     if (phaseQ) phaseQ.style.display = 'none';
     const limitInfo = document.getElementById('power-limit-info');
     if (limitInfo) {
-      document.getElementById('power-limit-value').textContent = currentMaxPowerKw;
-      limitInfo.style.display = 'block';
+      if (potencia && potencia > 0) {
+        document.getElementById('power-limit-value').textContent = potencia;
+        limitInfo.style.display = 'block';
+      } else {
+        limitInfo.style.display = 'none';
+      }
     }
   }
 
@@ -635,6 +653,11 @@ function runCalculation(skipAnimation) {
 
   if (entryMode === 'auto') {
     monthlyKwh = parseFloat(document.getElementById('auto-kwh').value);
+    // Fallback: si el input se vació pero tenemos datos de la factura
+    if ((!monthlyKwh || monthlyKwh < 10) && currentBillData && currentBillData.consumo_kwh) {
+      monthlyKwh = Math.round(currentBillData.consumo_kwh);
+      document.getElementById('auto-kwh').value = monthlyKwh;
+    }
     tariffId = document.getElementById('auto-tariff') ? document.getElementById('auto-tariff').value : '';
 
     if (!monthlyKwh || monthlyKwh < 10) {
@@ -676,7 +699,8 @@ function runCalculation(skipAnimation) {
     const cv2 = currentBillData.cargo_variable_2 || 0;
     const cv3 = currentBillData.cargo_variable_3 || 0;
     if (cv1 + cv2 + cv3 > 0) {
-      billPricePerKwh = (cv1 + cv2 + cv3) / currentBillData.consumo_kwh;
+      // Los importes de energía en la factura son sin IVA, sumar 21%
+      billPricePerKwh = ((cv1 + cv2 + cv3) / currentBillData.consumo_kwh) * 1.21;
     }
   }
 
